@@ -1,3 +1,10 @@
+name: bgmi_uc_shop  # Aapke project ka jo bhi naam ho
+description: A new Flutter project.
+
+# Ye wala section add karna zaroori hai 👇
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
 dependencies:
   flutter:
     sdk: flutter
