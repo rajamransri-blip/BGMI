@@ -44,8 +44,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: const Color(0xFF0A84FF),
-        scaffoldBackgroundColor: const Color(0xFF000000),
+        primaryColor: const Color(0xFFFF3B30), // Red accent
+        scaffoldBackgroundColor: Colors.black,
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1C1C1E),
           elevation: 0,
@@ -53,13 +53,13 @@ class MyApp extends StatelessWidget {
           titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
         ),
         cardTheme: CardTheme(
-          color: const Color(0xFF1C1C1E),
+          color: Colors.transparent,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0A84FF),
+            backgroundColor: const Color(0xFFFF3B30),
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -161,6 +161,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     setState(() => _isLoading = false);
   }
 
+  // ----- Google Sign‑In (mobile) -----
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
@@ -175,6 +176,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         idToken: googleAuth.idToken,
       );
       UserCredential userCred = await FirebaseAuth.instance.signInWithCredential(credential);
+      // Check if user exists in database
       final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
       final snap = await userRef.get();
       if (!snap.exists) {
@@ -185,11 +187,12 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         });
       }
     } catch (e) {
-      _showSnackbar("Google Sign-In failed: ${e.toString()}");
+      _showSnackbar("Google Sign-In failed: ${e.toString()}\n\nMake sure you've added SHA-1 fingerprint and OAuth client ID in Firebase Console.");
     }
     setState(() => _isLoading = false);
   }
 
+  // ----- GitHub Sign‑In (mobile using WebView) -----
   Future<void> _signInWithGitHub() async {
     setState(() => _isLoading = true);
     try {
@@ -198,13 +201,9 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         MaterialPageRoute(builder: (_) => const GitHubOAuthWebView()),
       );
       if (result != null && result is String) {
-        // In production, you'd exchange the code with your backend to get a Firebase custom token.
-        // For this demo, we simulate success and create a dummy user.
-        // Replace this with actual custom token sign-in.
+        // Exchange code for custom token via your backend
+        // For demo, show dialog
         _showSnackbar("GitHub sign-in requires a backend to exchange the code.");
-        // Example: 
-        // final customToken = await yourBackendExchange(result);
-        // await FirebaseAuth.instance.signInWithCustomToken(customToken);
       } else {
         _showSnackbar("GitHub sign-in cancelled.");
       }
@@ -226,7 +225,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.shopping_bag, size: 80, color: Color(0xFF0A84FF)),
+                  const Icon(Icons.shopping_bag, size: 80, color: Color(0xFFFF3B30)),
                   const SizedBox(height: 12),
                   const Text("Rooter SHOP", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 48),
@@ -323,8 +322,8 @@ class _GitHubOAuthWebViewState extends State<GitHubOAuthWebView> {
   @override
   void initState() {
     super.initState();
-    final clientId = 'YOUR_GITHUB_CLIENT_ID'; // Replace with your GitHub OAuth App Client ID
-    final redirectUri = Uri.encodeComponent('https://your-app-redirect.com/callback');
+    final clientId = 'Ov23lieu1w75z4ePWLYu'; // Replace with your GitHub OAuth App Client ID
+    final redirectUri = Uri.encodeComponent('https://bgmiuc-74295.firebaseapp.com/__/auth/handler'); // Firebase Auth domain
     final authUrl = 'https://github.com/login/oauth/authorize?client_id=$clientId&redirect_uri=$redirectUri&scope=user:email';
 
     _controller = WebViewController()
@@ -333,9 +332,13 @@ class _GitHubOAuthWebViewState extends State<GitHubOAuthWebView> {
         NavigationDelegate(
           onPageStarted: (String url) {
             setState(() => _isLoading = true);
+            // Check if we got a code in the URL
             if (url.contains('code=')) {
               final code = Uri.parse(url).queryParameters['code'];
-              if (code != null) Navigator.pop(context, code);
+              if (code != null) {
+                // Pop with the code
+                Navigator.pop(context, code);
+              }
             }
           },
           onPageFinished: (String url) => setState(() => _isLoading = false),
@@ -377,7 +380,7 @@ class _GitHubOAuthWebViewState extends State<GitHubOAuthWebView> {
   }
 }
 
-// ================= HOME SCREEN =================
+// ================= HOME SCREEN (Glassmorphism Packs) =================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -405,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
-      drawer: _buildDrawer(),
+      drawer: _buildPremiumDrawer(),
       appBar: AppBar(
         title: const Text("SHOP"),
         actions: [
@@ -421,8 +424,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2C2C2E),
+                    color: const Color(0xFF1C1C1E),
                     borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: const Color(0xFFFF3B30).withOpacity(0.5)),
                   ),
                   child: Row(
                     children: [
@@ -448,6 +452,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               decoration: InputDecoration(
                 hintText: "Search for BGMI UC...",
                 prefixIcon: Icon(Icons.search),
+                filled: true,
+                fillColor: Color(0xFF1C1C1E),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(30))),
               ),
             ),
             const SizedBox(height: 24),
@@ -460,18 +467,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   Map data = snapshot.data!.snapshot.value as Map;
                   var key = data.keys.first;
                   var codeData = data[key];
-                  return Card(
-                    color: Colors.green.withOpacity(0.2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: Colors.green),
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.red.shade900.withOpacity(0.3), Colors.black.withOpacity(0.5)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFFF3B30).withOpacity(0.5)),
                     ),
                     child: ListTile(
-                      leading: const Icon(Icons.card_giftcard, color: Colors.greenAccent, size: 30),
+                      leading: const Icon(Icons.card_giftcard, color: Color(0xFFFF3B30), size: 30),
                       title: const Text("Google Play Redeem Code", style: TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text(codeData['code'] ?? "XXXX-XXXX-XXXX", style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2)),
                       trailing: ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF3B30)),
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code Copied!")));
                         },
@@ -480,7 +491,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
                   );
                 }
-                return Card(
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.red.shade900.withOpacity(0.3), Colors.black.withOpacity(0.5)],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
                   child: const ListTile(
                     leading: Icon(Icons.card_giftcard, color: Colors.grey),
                     title: Text("No active giveaways"),
@@ -490,116 +507,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               },
             ),
             const SizedBox(height: 24),
-            const Text("🔥 For You", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text("🔥 BGMI UC Packs", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: _buildProductCard('BGMI UC', '10% Savings', Icons.gamepad, const BgmiPacksScreen())),
-                const SizedBox(width: 16),
-                Expanded(child: _buildProductCard('Valorant Points', '17.8% Savings', Icons.computer, const ValorantPacksScreen())),
-              ],
-            ),
+            ..._buildPackCards(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDrawer() {
-    return Drawer(
-      backgroundColor: const Color(0xFF1C1C1E),
-      child: SafeArea(
-        child: Column(
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(color: Color(0xFF0A84FF)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const Icon(Icons.account_circle, size: 60, color: Colors.white),
-                  const SizedBox(height: 8),
-                  Text(
-                    FirebaseAuth.instance.currentUser?.email ?? "User",
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text("Home"),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text("My Orders"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen()));
-              },
-            ),
-            const Divider(color: Color(0xFF2C2C2E)),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text("Logout", style: TextStyle(color: Colors.redAccent)),
-              onTap: () {
-                Navigator.pop(context);
-                FirebaseAuth.instance.signOut();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductCard(String title, String subtitle, IconData icon, Widget destination) {
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => destination)),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        transform: Matrix4.identity()..scale(1.0),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 120,
-              decoration: const BoxDecoration(
-                color: Color(0xFF2C2C2E),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Center(child: Icon(icon, size: 50, color: const Color(0xFF0A84FF))),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Color(0xFF0A84FF), fontSize: 13)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ================= BGMI PACKS =================
-class BgmiPacksScreen extends StatelessWidget {
-  const BgmiPacksScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
+  List<Widget> _buildPackCards() {
     final packs = [
       {'uc': 60, 'price': 75, 'discount': 0},
       {'uc': 300, 'extra': 25, 'price': 380, 'discount': 12},
@@ -607,95 +524,146 @@ class BgmiPacksScreen extends StatelessWidget {
       {'uc': 1500, 'extra': 225, 'price': 1800, 'discount': 35},
       {'uc': 3000, 'extra': 600, 'price': 3200, 'discount': 59},
     ];
-    return Scaffold(
-      appBar: AppBar(title: const Text("BGMI UC Packs")),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: packs.length,
-        itemBuilder: (context, index) {
-          final p = packs[index];
-          int total = p['uc']! + (p['extra'] ?? 0);
-          int discount = p['discount']!;
-          int originalPrice = p['price']!;
-          int discountedPrice = originalPrice;
-          if (discount > 0) discountedPrice = (originalPrice * (100 - discount) / 100).round();
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              leading: const Icon(Icons.monetization_on, color: Colors.amber, size: 36),
-              title: Row(
-                children: [
-                  Text("$total UC", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  if (discount > 0)
-                    Container(
-                      margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(12)),
-                      child: Text("-$discount%", style: const TextStyle(color: Colors.white, fontSize: 12)),
-                    ),
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (p['extra'] != null) Text("+ ${p['extra']} Bonus"),
-                  if (discount > 0) Text("₹$originalPrice", style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey)),
-                ],
-              ),
-              trailing: ElevatedButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => DeliveryDetailsScreen(uc: total, price: discountedPrice, packName: "$total UC")),
+
+    return packs.map((pack) {
+      int total = pack['uc']! + (pack['extra'] ?? 0);
+      int discount = pack['discount']!;
+      int originalPrice = pack['price']!;
+      int discountedPrice = discount > 0 ? (originalPrice * (100 - discount) / 100).round() : originalPrice;
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.red.shade900.withOpacity(0.3), Colors.black.withOpacity(0.6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFFF3B30).withOpacity(0.5)),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DeliveryDetailsScreen(
+                    uc: total,
+                    price: discountedPrice,
+                    packName: "$total UC",
+                  ),
                 ),
-                child: Text("₹$discountedPrice"),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.monetization_on, color: Colors.amber, size: 40),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "$total UC",
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        if (pack['extra'] != null)
+                          Text("+ ${pack['extra']} Bonus", style: const TextStyle(color: Colors.greenAccent)),
+                        if (discount > 0)
+                          Row(
+                            children: [
+                              Text("₹$originalPrice", style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey)),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF3B30),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text("-$discount%", style: const TextStyle(color: Colors.white, fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF3B30),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Text(
+                      "₹$discountedPrice",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildPremiumDrawer() {
+    return Drawer(
+      backgroundColor: Colors.black,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF3B30), Color(0xFF8B0000)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.account_circle, size: 80, color: Colors.white),
+                    const SizedBox(height: 8),
+                    Text(
+                      FirebaseAuth.instance.currentUser?.email ?? "User",
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildDrawerItem(Icons.home, "Home", () => Navigator.pop(context)),
+            _buildDrawerItem(Icons.history, "My Orders", () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen()));
+            }),
+            const Divider(color: Color(0xFF2C2C2E), thickness: 1),
+            _buildDrawerItem(Icons.logout, "Logout", () {
+              Navigator.pop(context);
+              FirebaseAuth.instance.signOut();
+            }, isRed: true),
+          ],
+        ),
       ),
     );
   }
-}
 
-// ================= VALORANT PACKS =================
-class ValorantPacksScreen extends StatelessWidget {
-  const ValorantPacksScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final packs = [
-      {'vp': 475, 'price': 399, 'discount': 10},
-      {'vp': 1000, 'price': 799, 'discount': 15},
-      {'vp': 2100, 'price': 1599, 'discount': 20},
-    ];
-    return Scaffold(
-      appBar: AppBar(title: const Text("Valorant Points")),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: packs.length,
-        itemBuilder: (context, index) {
-          final p = packs[index];
-          int vp = p['vp'] as int;
-          int price = p['price'] as int;
-          int discount = p['discount'] as int;
-          int discountedPrice = (price * (100 - discount) / 100).round();
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              leading: const Icon(Icons.computer, color: Color(0xFFFF4655), size: 36),
-              title: Text("$vp VP", style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text("₹$price → ₹$discountedPrice", style: const TextStyle(color: Colors.green)),
-              trailing: ElevatedButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => DeliveryDetailsScreen(uc: vp, price: discountedPrice, packName: "$vp VP")),
-                ),
-                child: Text("₹$discountedPrice"),
-              ),
-            ),
-          );
-        },
-      ),
+  Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {bool isRed = false}) {
+    return ListTile(
+      leading: Icon(icon, color: isRed ? Colors.redAccent : const Color(0xFFFF3B30)),
+      title: Text(title, style: TextStyle(color: isRed ? Colors.redAccent : Colors.white)),
+      onTap: onTap,
     );
   }
 }
@@ -726,7 +694,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               controller: _idController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: "BGMI / Valorant Game ID",
+                labelText: "BGMI Game ID",
                 hintText: "Enter your Player ID",
               ),
             ),
@@ -906,7 +874,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 const SizedBox(height: 10),
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF0A84FF), size: 30),
+                    leading: const Icon(Icons.account_balance_wallet, color: Color(0xFFFF3B30), size: 30),
                     title: const Text("Wallet Balance"),
                     subtitle: Text(
                       "₹$_wallet",
@@ -1109,7 +1077,7 @@ class OrderHistoryScreen extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(
-                  leading: const Icon(Icons.shopping_bag, color: Color(0xFF0A84FF)),
+                  leading: const Icon(Icons.shopping_bag, color: Color(0xFFFF3B30)),
                   title: Text(data['pack'] ?? "Order", style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
