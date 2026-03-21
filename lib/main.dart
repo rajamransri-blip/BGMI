@@ -3,14 +3,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:upi_india/upi_india.dart';
+import 'package:intl/intl.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   bool isFirebaseInit = false;
   String errorMsg = "";
-  
+
   try {
-    // Direct Firebase Setup (No gray screen error)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyDN_q_BcUTvSXkILqKIvO_FhYJ4jHSC-HY",
@@ -37,13 +37,48 @@ class RooterShopApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Rooter SHOP',
+      title: 'BLACKXY',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0F0F0F),
-        primaryColor: Colors.blueAccent,
-        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF1A1A1A), elevation: 0),
-        cardColor: const Color(0xFF1A1A1A),
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFF0A84FF),
+        scaffoldBackgroundColor: const Color(0xFF000000),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1C1C1E),
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        cardTheme: CardTheme(
+          color: const Color(0xFF1C1C1E),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0A84FF),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF1C1C1E),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
+        ),
       ),
       home: isInit ? const AuthStateWrapper() : Scaffold(body: Center(child: Text("Error: $error"))),
     );
@@ -82,19 +117,38 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
 
   void _submit() async {
-    if (_email.text.isEmpty || _pass.text.isEmpty) return;
+    if (_email.text.isEmpty || _pass.text.isEmpty) {
+      _showSnackbar("Please fill all fields");
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       if (_isLogin) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _email.text.trim(),
+          password: _pass.text.trim(),
+        );
       } else {
-        UserCredential user = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
-        await FirebaseDatabase.instance.ref("users/${user.user!.uid}").set({'balance': 0, 'email': _email.text.trim()});
+        UserCredential user = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _email.text.trim(),
+          password: _pass.text.trim(),
+        );
+        await FirebaseDatabase.instance.ref("users/${user.user!.uid}").set({
+          'balance': 0,
+          'email': _email.text.trim(),
+          'createdAt': ServerValue.timestamp,
+        });
+        _showSnackbar("Account created! Please login.");
+        setState(() => _isLogin = true);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      _showSnackbar(e.toString());
     }
     setState(() => _isLoading = false);
+  }
+
+  void _showSnackbar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -102,22 +156,53 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.shopping_bag, size: 80, color: Colors.blueAccent),
-              const SizedBox(height: 10),
-              const Text("Rooter SHOP", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 40),
-              TextField(controller: _email, decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1A1A1A), hintText: "Email", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+              const Icon(Icons.shopping_bag, size: 80, color: Color(0xFF0A84FF)),
+              const SizedBox(height: 12),
+              const Text(
+                "Rooter SHOP",
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+              ),
+              const SizedBox(height: 48),
+              TextField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: "Email",
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+              ),
               const SizedBox(height: 16),
-              TextField(controller: _pass, obscureText: true, decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1A1A1A), hintText: "Password", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-              const SizedBox(height: 30),
-              _isLoading 
-                ? const CircularProgressIndicator() 
-                : SizedBox(width: double.infinity, height: 50, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _submit, child: Text(_isLogin ? "Login" : "Register", style: const TextStyle(fontSize: 18, color: Colors.white)))),
-              TextButton(onPressed: () => setState(() => _isLogin = !_isLogin), child: Text(_isLogin ? "Create an account" : "I already have an account", style: const TextStyle(color: Colors.grey)))
+              TextField(
+                controller: _pass,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  hintText: "Password",
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+              ),
+              const SizedBox(height: 32),
+              if (_isLoading)
+                const CircularProgressIndicator()
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _submit,
+                    child: Text(_isLogin ? "Sign In" : "Create Account"),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => setState(() => _isLogin = !_isLogin),
+                child: Text(
+                  _isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in",
+                  style: const TextStyle(color: Color(0xFF8E8E93)),
+                ),
+              ),
             ],
           ),
         ),
@@ -126,7 +211,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
-// ================= HOME SCREEN (WITH DRAWER & BETTER UI) =================
+// ================= HOME SCREEN =================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -141,42 +226,55 @@ class _HomeScreenState extends State<HomeScreen> {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
-      // LEFT SIDE DRAWER MENU (Logout here)
       drawer: Drawer(
-        backgroundColor: const Color(0xFF1A1A1A),
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(color: Colors.blueAccent),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const Icon(Icons.account_circle, size: 60, color: Colors.white),
-                  const SizedBox(height: 10),
-                  Text(FirebaseAuth.instance.currentUser?.email ?? "User", style: const TextStyle(color: Colors.white, fontSize: 16)),
-                ],
+        backgroundColor: const Color(0xFF1C1C1E),
+        child: SafeArea(
+          child: Column(
+            children: [
+              DrawerHeader(
+                decoration: const BoxDecoration(color: Color(0xFF0A84FF)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Icon(Icons.account_circle, size: 60, color: Colors.white),
+                    const SizedBox(height: 8),
+                    Text(
+                      FirebaseAuth.instance.currentUser?.email ?? "User",
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            ListTile(leading: const Icon(Icons.home), title: const Text('Home'), onTap: () => Navigator.pop(context)),
-            ListTile(leading: const Icon(Icons.history), title: const Text('My Orders'), onTap: () {}),
-            const Divider(color: Colors.grey),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text('Logout', style: TextStyle(color: Colors.redAccent)),
-              onTap: () {
-                Navigator.pop(context);
-                FirebaseAuth.instance.signOut();
-              },
-            ),
-          ],
+              ListTile(
+                leading: const Icon(Icons.home),
+                title: const Text("Home"),
+                onTap: () => Navigator.pop(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.history),
+                title: const Text("My Orders"),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen()));
+                },
+              ),
+              const Divider(color: Color(0xFF2C2C2E)),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text("Logout", style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  Navigator.pop(context);
+                  FirebaseAuth.instance.signOut();
+                },
+              ),
+            ],
+          ),
         ),
       ),
       appBar: AppBar(
-        title: const Text('SHOP', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("SHOP"),
         actions: [
-          // WALLET BUTTON (Clickable for Top-up)
           StreamBuilder<DatabaseEvent>(
             stream: FirebaseDatabase.instance.ref("users/$uid/balance").onValue,
             builder: (context, snapshot) {
@@ -187,15 +285,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletTopupScreen())),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(color: const Color(0xFF333333), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.blueAccent.withOpacity(0.5))),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2C2C2E),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                   child: Row(
                     children: [
                       const Icon(Icons.account_balance_wallet, size: 18, color: Colors.white),
                       const SizedBox(width: 6),
-                      Text("₹$_balance", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text(
+                        "₹$_balance",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.add_circle, size: 16, color: Colors.greenAccent), // Add money icon
+                      const Icon(Icons.add_circle, size: 16, color: Colors.greenAccent),
                     ],
                   ),
                 ),
@@ -205,13 +309,22 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         children: [
-          TextField(decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1A1A1A), hintText: 'Search for BGMI UC...', prefixIcon: const Icon(Icons.search, color: Colors.grey), border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none))),
+          TextField(
+            decoration: InputDecoration(
+              hintText: "Search for BGMI UC...",
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
-          
-          // FREE GOOGLE REDEEM CODES (Giveaway Section)
-          const Text('🎁 Free Giveaways', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+
+          // Giveaway Section
+          const Text("🎁 Free Giveaways", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           StreamBuilder<DatabaseEvent>(
             stream: FirebaseDatabase.instance.ref("giveaways").limitToLast(1).onValue,
@@ -222,32 +335,41 @@ class _HomeScreenState extends State<HomeScreen> {
                 var codeData = data[key];
                 return Card(
                   color: Colors.green.withOpacity(0.2),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Colors.green)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Colors.green),
+                  ),
                   child: ListTile(
                     leading: const Icon(Icons.card_giftcard, color: Colors.greenAccent, size: 30),
-                    title: const Text("Google Play Redeem Code", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: Text(codeData['code'] ?? "XXXX-XXXX-XXXX", style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2)),
-                    trailing: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.green), onPressed: () {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code Copied!")));
-                    }, child: const Text("COPY", style: TextStyle(color: Colors.white))),
+                    title: const Text("Google Play Redeem Code", style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(
+                      codeData['code'] ?? "XXXX-XXXX-XXXX",
+                      style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2),
+                    ),
+                    trailing: ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Code Copied!")),
+                        );
+                      },
+                      child: const Text("COPY"),
+                    ),
                   ),
                 );
               }
-              // If admin hasn't posted a giveaway yet
               return Card(
-                color: const Color(0xFF1A1A1A),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 child: const ListTile(
                   leading: Icon(Icons.card_giftcard, color: Colors.grey),
-                  title: Text("No active giveaways right now"),
-                  subtitle: Text("Check back later for free redeem codes!"),
+                  title: Text("No active giveaways"),
+                  subtitle: Text("Check back later for free codes!"),
                 ),
               );
             },
           ),
 
           const SizedBox(height: 24),
-          const Text('🔥 For You', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text("🔥 For You", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -258,7 +380,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              Expanded(child: _buildProductCard('Valorant Points', '17.8% Savings', Icons.computer)),
+              Expanded(
+                child: _buildProductCard('Valorant Points', '17.8% Savings', Icons.computer),
+              ),
             ],
           ),
         ],
@@ -268,19 +392,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildProductCard(String title, String subtitle, IconData icon) {
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(height: 120, decoration: const BoxDecoration(color: Color(0xFF2A2A2A), borderRadius: BorderRadius.vertical(top: Radius.circular(16))), child: Center(child: Icon(icon, size: 50, color: Colors.blueAccent))),
+          Container(
+            height: 120,
+            decoration: const BoxDecoration(
+              color: Color(0xFF2C2C2E),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Center(child: Icon(icon, size: 50, color: const Color(0xFF0A84FF))),
+          ),
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(subtitle, style: const TextStyle(color: Color(0xFF0A84FF), fontSize: 13)),
               ],
             ),
           ),
@@ -306,18 +440,29 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
   @override
   void initState() {
     super.initState();
-    _upi.getAllUpiApps(mandatoryTransactionId: false).then((value) {
-      setState(() { _apps = value; _loading = false; });
-    }).catchError((e) {
-      setState(() => _loading = false);
-    });
+    _loadUpiApps();
   }
 
-  void _processTopup(UpiApp app) async {
-    if (_amountController.text.isEmpty) return;
-    int amount = int.parse(_amountController.text);
+  Future<void> _loadUpiApps() async {
+    try {
+      final apps = await _upi.getAllUpiApps(mandatoryTransactionId: false);
+      setState(() {
+        _apps = apps;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _processTopup(UpiApp app) async {
+    if (_amountController.text.isEmpty) {
+      _showSnackbar("Enter amount");
+      return;
+    }
+    int amount = int.tryParse(_amountController.text) ?? 0;
     if (amount < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Minimum top-up is ₹10")));
+      _showSnackbar("Minimum top-up is ₹10");
       return;
     }
 
@@ -325,69 +470,82 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
     try {
       UpiResponse res = await _upi.startTransaction(
         app: app,
-        receiverUpiId: "8406962570@ybl", // Admin UPI ID
-        receiverName: "Rooter Shop Wallet",
+        receiverUpiId: "paynearby.8406962570@indus", // Merchant UPI
+        receiverName: "Rooter Shop",
         transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
         amount: amount.toDouble(),
       );
 
       if (res.status == UpiPaymentStatus.SUCCESS) {
         final uid = FirebaseAuth.instance.currentUser!.uid;
-        // Logic: Add money to wallet in Firebase
         final ref = FirebaseDatabase.instance.ref("users/$uid/balance");
         await ref.runTransaction((Object? current) {
           int bal = current == null ? 0 : (current as num).toInt();
           return Transaction.success(bal + amount);
         });
-        
-        // Save Top-up history for admin
-        await FirebaseDatabase.instance.ref("topups").push().set({
-          'uid': uid, 'amount': amount, 'method': app.name, 'txnId': res.transactionId, 'timestamp': ServerValue.timestamp
+
+        await FirebaseDatabase.instance.ref("transactions").push().set({
+          'uid': uid,
+          'type': 'wallet_topup',
+          'amount': amount,
+          'method': app.name,
+          'txnId': res.transactionId,
+          'timestamp': ServerValue.timestamp,
         });
 
-        if(mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Wallet Recharge Successful!")));
-           Navigator.pop(context);
+        if (mounted) {
+          _showSnackbar("Wallet Recharge Successful!");
+          Navigator.pop(context);
         }
       } else {
-        if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Failed or Cancelled")));
+        _showSnackbar("Payment Failed or Cancelled");
       }
     } catch (e) {
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      _showSnackbar("Error: $e");
     }
     setState(() => _loading = false);
+  }
+
+  void _showSnackbar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Add Money to Wallet")),
-      body: _loading ? const Center(child: CircularProgressIndicator()) : Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(prefixText: "₹ ", filled: true, fillColor: const Color(0xFF1A1A1A), labelText: "Enter Amount", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-            ),
-            const SizedBox(height: 30),
-            const Text("Pay using UPI", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            if (_apps != null) ..._apps!.map((a) => Card(
-              color: const Color(0xFF1A1A1A),
-              child: ListTile(
-                leading: Image.memory(a.icon, width: 30),
-                title: Text(a.name),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _processTopup(a),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    decoration: const InputDecoration(
+                      prefixText: "₹ ",
+                      labelText: "Enter Amount",
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const Text("Pay using UPI", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  if (_apps != null)
+                    ..._apps!.map((a) => Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            leading: Image.memory(a.icon, width: 30),
+                            title: Text(a.name),
+                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            onTap: () => _processTopup(a),
+                          ),
+                        )),
+                ],
               ),
-            )),
-          ],
-        ),
-      ),
+            ),
     );
   }
 }
@@ -395,27 +553,36 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
 // ================= BGMI PACKS SCREEN =================
 class BgmiPacksScreen extends StatelessWidget {
   const BgmiPacksScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
-    final packs = [{'uc': 60, 'price': 75}, {'uc': 300, 'extra': 25, 'price': 380}, {'uc': 600, 'extra': 60, 'price': 750}];
+    final packs = [
+      {'uc': 60, 'price': 75},
+      {'uc': 300, 'extra': 25, 'price': 380},
+      {'uc': 600, 'extra': 60, 'price': 750},
+    ];
     return Scaffold(
       appBar: AppBar(title: const Text("Select Pack")),
       body: ListView.builder(
+        padding: const EdgeInsets.all(16),
         itemCount: packs.length,
         itemBuilder: (context, index) {
           final p = packs[index];
           int total = p['uc']! + (p['extra'] ?? 0);
           return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               leading: const Icon(Icons.monetization_on, color: Colors.amber, size: 36),
               title: Text("$total UC", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               subtitle: p['extra'] != null ? Text("+ ${p['extra']} Bonus") : null,
               trailing: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DeliveryDetailsScreen(uc: total, price: p['price']!))),
-                child: Text("₹${p['price']}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DeliveryDetailsScreen(uc: total, price: p['price']!),
+                  ),
+                ),
+                child: Text("₹${p['price']}"),
               ),
             ),
           );
@@ -427,7 +594,8 @@ class BgmiPacksScreen extends StatelessWidget {
 
 // ================= DELIVERY DETAILS =================
 class DeliveryDetailsScreen extends StatefulWidget {
-  final int uc; final int price;
+  final int uc;
+  final int price;
   const DeliveryDetailsScreen({super.key, required this.uc, required this.price});
   @override
   State<DeliveryDetailsScreen> createState() => _DeliveryDetailsScreenState();
@@ -435,28 +603,62 @@ class DeliveryDetailsScreen extends StatefulWidget {
 
 class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
   final _idController = TextEditingController();
+  bool _saveDetails = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Delivery Details")),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextField(controller: _idController, keyboardType: TextInputType.number, decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1A1A1A), labelText: "BGMI Game ID", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+            TextField(
+              controller: _idController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "BGMI Game ID",
+                hintText: "Enter your Player ID",
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Checkbox(
+                  value: _saveDetails,
+                  onChanged: (val) => setState(() => _saveDetails = val ?? false),
+                ),
+                const Text("Save details for future deliveries"),
+              ],
+            ),
             const Spacer(),
             SizedBox(
-              width: double.infinity, height: 50,
+              width: double.infinity,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 onPressed: () {
-                  if (_idController.text.isNotEmpty) {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(price: widget.price, pack: "${widget.uc} UC", gameId: _idController.text.trim())));
+                  if (_idController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Please enter Game ID")),
+                    );
+                    return;
                   }
+                  if (_saveDetails) {
+                    // save to shared_preferences or local storage (simplified)
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PaymentScreen(
+                        price: widget.price,
+                        pack: "${widget.uc} UC",
+                        gameId: _idController.text.trim(),
+                      ),
+                    ),
+                  );
                 },
-                child: Text("Proceed to Pay ₹${widget.price}", style: const TextStyle(fontSize: 18, color: Colors.white)),
+                child: Text("Proceed to Pay ₹${widget.price}"),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -464,9 +666,11 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
   }
 }
 
-// ================= DIRECT PAYMENT (ITEM PURCHASE) SCREEN =================
+// ================= PAYMENT SCREEN =================
 class PaymentScreen extends StatefulWidget {
-  final int price; final String pack; final String gameId;
+  final int price;
+  final String pack;
+  final String gameId;
   const PaymentScreen({super.key, required this.price, required this.pack, required this.gameId});
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -484,22 +688,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _initData();
   }
 
-  void _initData() async {
+  Future<void> _initData() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final snap = await FirebaseDatabase.instance.ref("users/$uid/balance").get();
     if (snap.exists) _wallet = (snap.value as num).toInt();
-    _upi.getAllUpiApps(mandatoryTransactionId: false).then((v) { setState(() { _apps = v; _loading = false; }); }).catchError((e) { setState(() => _loading = false); });
+    try {
+      final apps = await _upi.getAllUpiApps(mandatoryTransactionId: false);
+      setState(() {
+        _apps = apps;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() => _loading = false);
+    }
   }
 
-  void _payWithWallet() async {
+  Future<void> _payWithWallet() async {
     if (_wallet < widget.price) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insufficient Wallet Balance!")));
+      _showSnackbar("Insufficient Wallet Balance!");
       return;
     }
     setState(() => _loading = true);
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final db = FirebaseDatabase.instance.ref();
-    
+
     final res = await db.child("users/$uid/balance").runTransaction((current) {
       int bal = current == null ? 0 : (current as num).toInt();
       if (bal < widget.price) return Transaction.abort();
@@ -507,70 +719,322 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     if (res.committed) {
-      await db.child("orders").push().set({'uid': uid, 'gameId': widget.gameId, 'pack': widget.pack, 'price': widget.price, 'method': 'Wallet', 'status': 'Paid', 'timestamp': ServerValue.timestamp});
-      _successDialog();
+      await db.child("orders").push().set({
+        'uid': uid,
+        'gameId': widget.gameId,
+        'pack': widget.pack,
+        'price': widget.price,
+        'method': 'Wallet',
+        'status': 'Pending',
+        'timestamp': ServerValue.timestamp,
+      });
+      if (mounted) _showSuccessDialog();
     } else {
       setState(() => _loading = false);
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Transaction Failed!")));
+      _showSnackbar("Transaction Failed!");
     }
   }
 
-  void _payWithUPI(UpiApp app) async {
+  Future<void> _payWithUPI(UpiApp app) async {
     setState(() => _loading = true);
     try {
       UpiResponse res = await _upi.startTransaction(
-        app: app, receiverUpiId: "8406962570@ybl", receiverName: "Rooter Shop", transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(), amount: widget.price.toDouble(),
+        app: app,
+        receiverUpiId: "paynearby.8406962570@indus",
+        receiverName: "BLACKXY Shop",
+        transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
+        amount: widget.price.toDouble(),
       );
       if (res.status == UpiPaymentStatus.SUCCESS) {
-        await FirebaseDatabase.instance.ref("orders").push().set({'uid': FirebaseAuth.instance.currentUser!.uid, 'gameId': widget.gameId, 'pack': widget.pack, 'price': widget.price, 'method': app.name, 'status': 'Paid', 'timestamp': ServerValue.timestamp});
-        _successDialog();
+        await FirebaseDatabase.instance.ref("orders").push().set({
+          'uid': FirebaseAuth.instance.currentUser!.uid,
+          'gameId': widget.gameId,
+          'pack': widget.pack,
+          'price': widget.price,
+          'method': app.name,
+          'status': 'Pending',
+          'timestamp': ServerValue.timestamp,
+        });
+        if (mounted) _showSuccessDialog();
       } else {
-        if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Failed or Cancelled")));
+        _showSnackbar("Payment Failed or Cancelled");
       }
     } catch (e) {
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      _showSnackbar("Error: $e");
     }
     setState(() => _loading = false);
   }
 
-  void _successDialog() {
-    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-      title: const Text("Success ✅"), content: const Text("Order Placed Successfully!"),
-      actions: [TextButton(onPressed: () { Navigator.pop(ctx); Navigator.popUntil(context, (r) => r.isFirst); }, child: const Text("OK"))],
-    ));
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 10),
+            Text("Success!"),
+          ],
+        ),
+        content: const Text("Your order has been placed successfully."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.popUntil(context, (route) => route.isFirst);
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackbar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Payment Methods")),
-      body: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text("Pay using Wallet", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          const SizedBox(height: 10),
-          Card(
-            color: const Color(0xFF1A1A1A),
-            child: ListTile(
-              leading: const Icon(Icons.account_balance_wallet, color: Colors.blueAccent, size: 30),
-              title: const Text("Wallet Balance"),
-              subtitle: Text("₹$_wallet", style: TextStyle(color: _wallet < widget.price ? Colors.redAccent : Colors.greenAccent, fontWeight: FontWeight.bold)),
-              trailing: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: _wallet >= widget.price ? Colors.blueAccent : Colors.grey),
-                onPressed: _wallet >= widget.price ? _payWithWallet : null,
-                child: const Text("Pay", style: TextStyle(color: Colors.white)),
-              ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const Text("Pay using Wallet", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 10),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF0A84FF), size: 30),
+                    title: const Text("Wallet Balance"),
+                    subtitle: Text(
+                      "₹$_wallet",
+                      style: TextStyle(
+                        color: _wallet < widget.price ? Colors.redAccent : Colors.greenAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    trailing: ElevatedButton(
+                      onPressed: _wallet >= widget.price ? _payWithWallet : null,
+                      child: const Text("Pay"),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                const Text("Direct UPI Payment", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 10),
+                if (_apps != null)
+                  ..._apps!.map((a) => Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: Image.memory(a.icon, width: 30),
+                          title: Text(a.name),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          onTap: () => _payWithUPI(a),
+                        ),
+                      )),
+              ],
             ),
-          ),
-          const SizedBox(height: 30),
-          const Text("Direct UPI Payment", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          const SizedBox(height: 10),
-          if (_apps != null) ..._apps!.map((a) => Card(
-            color: const Color(0xFF1A1A1A),
-            child: ListTile(leading: Image.memory(a.icon, width: 30), title: Text(a.name), trailing: const Icon(Icons.arrow_forward_ios, size: 16), onTap: () => _payWithUPI(a)),
-          )),
-        ],
+    );
+  }
+}
+
+// ================= ORDER HISTORY SCREEN =================
+class OrderHistoryScreen extends StatelessWidget {
+  const OrderHistoryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    return Scaffold(
+      appBar: AppBar(title: const Text("My Orders")),
+      body: StreamBuilder<DatabaseEvent>(
+        stream: FirebaseDatabase.instance.ref("orders").orderByChild("uid").equalTo(uid).onValue,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text("No orders yet", style: TextStyle(fontSize: 18)),
+                  Text("Start shopping to see your orders here"),
+                ],
+              ),
+            );
+          }
+
+          Map<dynamic, dynamic> orders = snapshot.data!.snapshot.value as Map;
+          List<MapEntry> entries = orders.entries.toList();
+          entries.sort((a, b) => (b.value['timestamp'] ?? 0).compareTo(a.value['timestamp'] ?? 0));
+
+          return ListView.builder(
+            itemCount: entries.length,
+            itemBuilder: (ctx, index) {
+              var orderId = entries[index].key;
+              var data = entries[index].value;
+              String status = data['status'] ?? "Pending";
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.shopping_bag, color: Color(0xFF0A84FF)),
+                  title: Text(data['pack'] ?? "Order", style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Game ID: ${data['gameId']}"),
+                      Text("Amount: ₹${data['price']}"),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(status),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          status,
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailScreen(orderId: orderId, orderData: data),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          );
+        },
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case "Pending": return Colors.orange;
+      case "Processing": return Colors.blue;
+      case "Shipped": return Colors.purple;
+      case "Delivered": return Colors.green;
+      default: return Colors.grey;
+    }
+  }
+}
+
+// ================= ORDER DETAIL + LIVE TRACKING =================
+class OrderDetailScreen extends StatefulWidget {
+  final String orderId;
+  final Map<dynamic, dynamic> orderData;
+  const OrderDetailScreen({super.key, required this.orderId, required this.orderData});
+
+  @override
+  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
+}
+
+class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  final List<String> _statusFlow = ["Pending", "Processing", "Shipped", "Delivered"];
+  String? _currentStatus;
+  late DatabaseReference _statusRef;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentStatus = widget.orderData['status'] ?? "Pending";
+    _statusRef = FirebaseDatabase.instance.ref("orders/${widget.orderId}/status");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Order Details")),
+      body: StreamBuilder<DatabaseEvent>(
+        stream: _statusRef.onValue,
+        builder: (context, snapshot) {
+          if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+            _currentStatus = snapshot.data!.snapshot.value as String;
+          }
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Order ID: ${widget.orderId}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const Divider(),
+                        Text("Pack: ${widget.orderData['pack']}"),
+                        Text("Game ID: ${widget.orderData['gameId']}"),
+                        Text("Amount: ₹${widget.orderData['price']}"),
+                        Text("Payment Method: ${widget.orderData['method']}"),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Text("Current Status: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(_currentStatus),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(_currentStatus!, style: const TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text("Live Tracking", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                ..._statusFlow.map((status) => _buildTimelineItem(status)).toList(),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(String status) {
+    bool isCompleted = _statusFlow.indexOf(status) <= _statusFlow.indexOf(_currentStatus!);
+    bool isCurrent = status == _currentStatus;
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: isCompleted ? _getStatusColor(status) : Colors.grey.shade700,
+        child: isCompleted ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+      ),
+      title: Text(status, style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+      subtitle: isCurrent ? const Text("Current status") : null,
+      trailing: isCurrent ? const Icon(Icons.location_on, color: Colors.green) : null,
+    );
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case "Pending": return Colors.orange;
+      case "Processing": return Colors.blue;
+      case "Shipped": return Colors.purple;
+      case "Delivered": return Colors.green;
+      default: return Colors.grey;
+    }
   }
 }
