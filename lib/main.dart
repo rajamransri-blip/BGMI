@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // ← Added for iOS-style dialogs
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -176,13 +177,10 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signInWithGitHub() async {
     setState(() => _isLoading = true);
     try {
-      // Create an OAuth provider for GitHub
+      // Create an OAuth provider for GitHub (works on web, for mobile you need a custom redirect)
       final provider = OAuthProvider('github.com');
       provider.addScope('user:email');
       UserCredential userCred = await FirebaseAuth.instance.signInWithPopup(provider);
-      // For mobile, you need to handle redirects properly; this works on web.
-      // For mobile, you can use signInWithCredential after getting token via webview.
-      // For simplicity, we assume web or a pre-configured environment.
       final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
       final snap = await userRef.get();
       if (!snap.exists) {
@@ -574,7 +572,7 @@ class ValorantPacksScreen extends StatelessWidget {
         itemCount: packs.length,
         itemBuilder: (context, index) {
           final p = packs[index];
-          int vp = p['vp'] as int; // explicitly cast to int
+          int vp = p['vp'] as int;
           int price = p['price'] as int;
           int discount = p['discount'] as int;
           int discountedPrice = (price * (100 - discount) / 100).round();
@@ -913,7 +911,7 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
           'method': app.name,
           'txnId': res.transactionId,
           'timestamp': ServerValue.timestamp,
-          'approved': true, // auto-approve for demo; admin can later review
+          'approved': true,
         });
 
         if (mounted) {
