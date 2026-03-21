@@ -22,6 +22,9 @@ dependencies:
   # Google Sign-In
   google_sign_in: ^6.2.1
 
+  # WebView for GitHub OAuth (mobile)
+  webview_flutter: ^4.7.0
+
   # Date formatting
   intl: ^0.18.1
 
