@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,12 +6,11 @@ import 'package:upi_india/upi_india.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   bool isFirebaseInit = false;
   String errorMsg = "";
   
   try {
-    // 🔥 MAGIC FIX: Ab hum direct Firebase connect kar rahe hain bina kisi JSON file ke!
+    // Direct Firebase Setup (No gray screen error)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyDN_q_BcUTvSXkILqKIvO_FhYJ4jHSC-HY",
@@ -26,50 +24,28 @@ void main() async {
     isFirebaseInit = true;
   } catch (e) {
     errorMsg = e.toString();
-    debugPrint("Firebase Error: $e");
   }
 
-  runApp(RooterShopApp(isInitialized: isFirebaseInit, error: errorMsg));
+  runApp(RooterShopApp(isInit: isFirebaseInit, error: errorMsg));
 }
 
 class RooterShopApp extends StatelessWidget {
-  final bool isInitialized;
+  final bool isInit;
   final String error;
-  
-  const RooterShopApp({super.key, required this.isInitialized, required this.error});
+  const RooterShopApp({super.key, required this.isInit, required this.error});
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoApp(
+    return MaterialApp(
       title: 'Rooter SHOP',
-      theme: const CupertinoThemeData(
-        brightness: Brightness.dark,
-        primaryColor: CupertinoColors.activeBlue,
-        scaffoldBackgroundColor: Color(0xFF0F0F0F),
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0F0F0F),
+        primaryColor: Colors.blueAccent,
+        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF1A1A1A), elevation: 0),
+        cardColor: const Color(0xFF1A1A1A),
       ),
-      home: isInitialized 
-          ? const AuthStateWrapper() 
-          : _buildErrorScreen(error),
-    );
-  }
-
-  Widget _buildErrorScreen(String error) {
-    return CupertinoPageScaffold(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: CupertinoColors.destructiveRed, size: 60),
-              const SizedBox(height: 20),
-              const Text("Firebase Setup Error", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: CupertinoColors.white)),
-              const SizedBox(height: 10),
-              Text("Error: $error", textAlign: TextAlign.center, style: const TextStyle(color: CupertinoColors.systemGrey)),
-            ],
-          ),
-        ),
-      ),
+      home: isInit ? const AuthStateWrapper() : Scaffold(body: Center(child: Text("Error: $error"))),
     );
   }
 }
@@ -77,14 +53,13 @@ class RooterShopApp extends StatelessWidget {
 // ================= AUTH WRAPPER =================
 class AuthStateWrapper extends StatelessWidget {
   const AuthStateWrapper({super.key});
-
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CupertinoPageScaffold(child: Center(child: CupertinoActivityIndicator()));
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snapshot.hasData) return const HomeScreen();
         return const AuthScreen();
@@ -93,7 +68,7 @@ class AuthStateWrapper extends StatelessWidget {
   }
 }
 
-// ================= AUTH (LOGIN/REGISTER) SCREEN =================
+// ================= LOGIN / REGISTER =================
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
   @override
@@ -101,49 +76,48 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _email = TextEditingController();
+  final _pass = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
 
   void _submit() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) return;
+    if (_email.text.isEmpty || _pass.text.isEmpty) return;
     setState(() => _isLoading = true);
     try {
       if (_isLogin) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(email: _emailController.text.trim(), password: _passwordController.text.trim());
+        await FirebaseAuth.instance.signInWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
       } else {
-        UserCredential user = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: _emailController.text.trim(), password: _passwordController.text.trim());
-        await FirebaseDatabase.instance.ref("users/${user.user!.uid}").set({'balance': 0, 'email': _emailController.text.trim()});
+        UserCredential user = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
+        await FirebaseDatabase.instance.ref("users/${user.user!.uid}").set({'balance': 0, 'email': _email.text.trim()});
       }
     } catch (e) {
-      _showError(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
     setState(() => _isLoading = false);
   }
 
-  void _showError(String msg) {
-    showCupertinoDialog(context: context, builder: (ctx) => CupertinoAlertDialog(title: const Text("Error"), content: Text(msg), actions: [CupertinoDialogAction(child: const Text("OK"), onPressed: () => Navigator.pop(ctx))]));
-  }
-
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(middle: Text("Login / Register")),
-      child: SafeArea(
+    return Scaffold(
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text("Rooter SHOP", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: CupertinoColors.white)),
-              const SizedBox(height: 32),
-              CupertinoTextField(controller: _emailController, placeholder: "Email", keyboardType: TextInputType.emailAddress, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(8))),
-              const SizedBox(height: 12),
-              CupertinoTextField(controller: _passwordController, placeholder: "Password", obscureText: true, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(8))),
-              const SizedBox(height: 24),
-              _isLoading ? const CupertinoActivityIndicator() : CupertinoButton.filled(onPressed: _submit, child: Text(_isLogin ? "Login" : "Register")),
-              CupertinoButton(child: Text(_isLogin ? "Create an account" : "I already have an account"), onPressed: () => setState(() => _isLogin = !_isLogin)),
+              const Icon(Icons.shopping_bag, size: 80, color: Colors.blueAccent),
+              const SizedBox(height: 10),
+              const Text("Rooter SHOP", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 40),
+              TextField(controller: _email, decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1A1A1A), hintText: "Email", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+              const SizedBox(height: 16),
+              TextField(controller: _pass, obscureText: true, decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1A1A1A), hintText: "Password", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+              const SizedBox(height: 30),
+              _isLoading 
+                ? const CircularProgressIndicator() 
+                : SizedBox(width: double.infinity, height: 50, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _submit, child: Text(_isLogin ? "Login" : "Register", style: const TextStyle(fontSize: 18, color: Colors.white)))),
+              TextButton(onPressed: () => setState(() => _isLogin = !_isLogin), child: Text(_isLogin ? "Create an account" : "I already have an account", style: const TextStyle(color: Colors.grey)))
             ],
           ),
         ),
@@ -152,7 +126,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
-// ================= HOME SCREEN =================
+// ================= HOME SCREEN (WITH DRAWER & BETTER UI) =================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -161,107 +135,258 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _balance = 0;
-  late Stream<DatabaseEvent> _balanceStream;
-
-  @override
-  void initState() {
-    super.initState();
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    _balanceStream = FirebaseDatabase.instance.ref("users/$uid/balance").onValue;
-  }
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoTabScaffold(
-      tabBar: CupertinoTabBar(
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    return Scaffold(
+      // LEFT SIDE DRAWER MENU (Logout here)
+      drawer: Drawer(
         backgroundColor: const Color(0xFF1A1A1A),
-        activeColor: CupertinoColors.activeBlue,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.cube), label: 'Orders'),
-        ],
-      ),
-      tabBuilder: (context, index) {
-        if (index == 1) return const OrdersScreen(); 
-        return CupertinoPageScaffold(
-          navigationBar: CupertinoNavigationBar(
-            backgroundColor: const Color(0xFF1A1A1A),
-            leading: const Icon(CupertinoIcons.bag_fill, color: CupertinoColors.activeBlue),
-            middle: const Text('SHOP', style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
-            trailing: StreamBuilder<DatabaseEvent>(
-              stream: _balanceStream,
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-                  _balance = (snapshot.data!.snapshot.value as num).toInt();
-                }
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: const Color(0xFF333333), borderRadius: BorderRadius.circular(20)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(CupertinoIcons.creditcard, size: 16, color: CupertinoColors.white),
-                      const SizedBox(width: 4),
-                      Text("₹$_balance", style: const TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                );
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Colors.blueAccent),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const Icon(Icons.account_circle, size: 60, color: Colors.white),
+                  const SizedBox(height: 10),
+                  Text(FirebaseAuth.instance.currentUser?.email ?? "User", style: const TextStyle(color: Colors.white, fontSize: 16)),
+                ],
+              ),
+            ),
+            ListTile(leading: const Icon(Icons.home), title: const Text('Home'), onTap: () => Navigator.pop(context)),
+            ListTile(leading: const Icon(Icons.history), title: const Text('My Orders'), onTap: () {}),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('Logout', style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                Navigator.pop(context);
+                FirebaseAuth.instance.signOut();
               },
             ),
-          ),
-          child: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                const CupertinoSearchTextField(backgroundColor: Color(0xFF1A1A1A), placeholder: 'Search for BGMI UC...'),
-                const SizedBox(height: 20),
-                const Text('For You', style: TextStyle(color: CupertinoColors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const BgmiPacksScreen())),
-                        child: _buildCard('BGMI UC', '10% Savings', CupertinoIcons.game_controller_solid),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildCard('Valorant Points', '17.8% Savings', CupertinoIcons.desktopcomputer)),
-                  ],
+          ],
+        ),
+      ),
+      appBar: AppBar(
+        title: const Text('SHOP', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          // WALLET BUTTON (Clickable for Top-up)
+          StreamBuilder<DatabaseEvent>(
+            stream: FirebaseDatabase.instance.ref("users/$uid/balance").onValue,
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+                _balance = (snapshot.data!.snapshot.value as num).toInt();
+              }
+              return GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletTopupScreen())),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(color: const Color(0xFF333333), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.blueAccent.withOpacity(0.5))),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.account_balance_wallet, size: 18, color: Colors.white),
+                      const SizedBox(width: 6),
+                      Text("₹$_balance", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.add_circle, size: 16, color: Colors.greenAccent), // Add money icon
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 30),
-                CupertinoButton(
-                  color: CupertinoColors.destructiveRed,
-                  child: const Text("Logout"),
-                  onPressed: () => FirebaseAuth.instance.signOut(),
-                )
-              ],
-            ),
+              );
+            },
           ),
-        );
-      },
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          TextField(decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1A1A1A), hintText: 'Search for BGMI UC...', prefixIcon: const Icon(Icons.search, color: Colors.grey), border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none))),
+          const SizedBox(height: 24),
+          
+          // FREE GOOGLE REDEEM CODES (Giveaway Section)
+          const Text('🎁 Free Giveaways', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          StreamBuilder<DatabaseEvent>(
+            stream: FirebaseDatabase.instance.ref("giveaways").limitToLast(1).onValue,
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+                Map data = snapshot.data!.snapshot.value as Map;
+                var key = data.keys.first;
+                var codeData = data[key];
+                return Card(
+                  color: Colors.green.withOpacity(0.2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Colors.green)),
+                  child: ListTile(
+                    leading: const Icon(Icons.card_giftcard, color: Colors.greenAccent, size: 30),
+                    title: const Text("Google Play Redeem Code", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    subtitle: Text(codeData['code'] ?? "XXXX-XXXX-XXXX", style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2)),
+                    trailing: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.green), onPressed: () {
+                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code Copied!")));
+                    }, child: const Text("COPY", style: TextStyle(color: Colors.white))),
+                  ),
+                );
+              }
+              // If admin hasn't posted a giveaway yet
+              return Card(
+                color: const Color(0xFF1A1A1A),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: const ListTile(
+                  leading: Icon(Icons.card_giftcard, color: Colors.grey),
+                  title: Text("No active giveaways right now"),
+                  subtitle: Text("Check back later for free redeem codes!"),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+          const Text('🔥 For You', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BgmiPacksScreen())),
+                  child: _buildProductCard('BGMI UC', '10% Savings', Icons.gamepad),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: _buildProductCard('Valorant Points', '17.8% Savings', Icons.computer)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildCard(String title, String subtitle, IconData icon) {
+  Widget _buildProductCard(String title, String subtitle, IconData icon) {
     return Container(
       decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(height: 100, decoration: const BoxDecoration(color: Color(0xFF333333), borderRadius: BorderRadius.vertical(top: Radius.circular(16))), child: Center(child: Icon(icon, size: 40, color: CupertinoColors.systemGrey))),
+          Container(height: 120, decoration: const BoxDecoration(color: Color(0xFF2A2A2A), borderRadius: BorderRadius.vertical(top: Radius.circular(16))), child: Center(child: Icon(icon, size: 50, color: Colors.blueAccent))),
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: CupertinoColors.activeBlue, fontSize: 12)),
+                Text(subtitle, style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ================= WALLET TOP-UP SCREEN =================
+class WalletTopupScreen extends StatefulWidget {
+  const WalletTopupScreen({super.key});
+  @override
+  State<WalletTopupScreen> createState() => _WalletTopupScreenState();
+}
+
+class _WalletTopupScreenState extends State<WalletTopupScreen> {
+  final UpiIndia _upi = UpiIndia();
+  List<UpiApp>? _apps;
+  final _amountController = TextEditingController();
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _upi.getAllUpiApps(mandatoryTransactionId: false).then((value) {
+      setState(() { _apps = value; _loading = false; });
+    }).catchError((e) {
+      setState(() => _loading = false);
+    });
+  }
+
+  void _processTopup(UpiApp app) async {
+    if (_amountController.text.isEmpty) return;
+    int amount = int.parse(_amountController.text);
+    if (amount < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Minimum top-up is ₹10")));
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      UpiResponse res = await _upi.startTransaction(
+        app: app,
+        receiverUpiId: "8406962570@ybl", // Admin UPI ID
+        receiverName: "Rooter Shop Wallet",
+        transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
+        amount: amount.toDouble(),
+      );
+
+      if (res.status == UpiPaymentStatus.SUCCESS) {
+        final uid = FirebaseAuth.instance.currentUser!.uid;
+        // Logic: Add money to wallet in Firebase
+        final ref = FirebaseDatabase.instance.ref("users/$uid/balance");
+        await ref.runTransaction((Object? current) {
+          int bal = current == null ? 0 : (current as num).toInt();
+          return Transaction.success(bal + amount);
+        });
+        
+        // Save Top-up history for admin
+        await FirebaseDatabase.instance.ref("topups").push().set({
+          'uid': uid, 'amount': amount, 'method': app.name, 'txnId': res.transactionId, 'timestamp': ServerValue.timestamp
+        });
+
+        if(mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Wallet Recharge Successful!")));
+           Navigator.pop(context);
+        }
+      } else {
+        if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Failed or Cancelled")));
+      }
+    } catch (e) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+    setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Add Money to Wallet")),
+      body: _loading ? const Center(child: CircularProgressIndicator()) : Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(prefixText: "₹ ", filled: true, fillColor: const Color(0xFF1A1A1A), labelText: "Enter Amount", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+            ),
+            const SizedBox(height: 30),
+            const Text("Pay using UPI", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            if (_apps != null) ..._apps!.map((a) => Card(
+              color: const Color(0xFF1A1A1A),
+              child: ListTile(
+                leading: Image.memory(a.icon, width: 30),
+                title: Text(a.name),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () => _processTopup(a),
+              ),
+            )),
+          ],
+        ),
       ),
     );
   }
@@ -270,44 +395,39 @@ class _HomeScreenState extends State<HomeScreen> {
 // ================= BGMI PACKS SCREEN =================
 class BgmiPacksScreen extends StatelessWidget {
   const BgmiPacksScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
-    final packs = [
-      {'uc': 60, 'price': 75},
-      {'uc': 300, 'extra': 25, 'price': 380},
-      {'uc': 600, 'extra': 60, 'price': 750},
-    ];
-
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(middle: Text("Select BGMI UC Pack")),
-      child: SafeArea(
-        child: ListView.separated(
-          itemCount: packs.length,
-          separatorBuilder: (_, __) => const Divider(color: Color(0xFF333333), height: 1),
-          itemBuilder: (context, index) {
-            final p = packs[index];
-            int total = p['uc']! + (p['extra'] ?? 0);
-            return Material(
-              color: const Color(0xFF1A1A1A),
-              child: ListTile(
-                leading: const Icon(CupertinoIcons.money_dollar_circle, color: Color(0xFFFFD700), size: 30),
-                title: Text("$total UC", style: const TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
-                trailing: Text("₹${p['price']}", style: const TextStyle(color: CupertinoColors.activeBlue, fontWeight: FontWeight.bold, fontSize: 16)),
-                onTap: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => DeliveryDetailsScreen(uc: total, price: p['price']!))),
+    final packs = [{'uc': 60, 'price': 75}, {'uc': 300, 'extra': 25, 'price': 380}, {'uc': 600, 'extra': 60, 'price': 750}];
+    return Scaffold(
+      appBar: AppBar(title: const Text("Select Pack")),
+      body: ListView.builder(
+        itemCount: packs.length,
+        itemBuilder: (context, index) {
+          final p = packs[index];
+          int total = p['uc']! + (p['extra'] ?? 0);
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: const Icon(Icons.monetization_on, color: Colors.amber, size: 36),
+              title: Text("$total UC", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              subtitle: p['extra'] != null ? Text("+ ${p['extra']} Bonus") : null,
+              trailing: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DeliveryDetailsScreen(uc: total, price: p['price']!))),
+                child: Text("₹${p['price']}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-// ================= DELIVERY DETAILS (GAME ID) =================
+// ================= DELIVERY DETAILS =================
 class DeliveryDetailsScreen extends StatefulWidget {
-  final int uc;
-  final int price;
+  final int uc; final int price;
   const DeliveryDetailsScreen({super.key, required this.uc, required this.price});
   @override
   State<DeliveryDetailsScreen> createState() => _DeliveryDetailsScreenState();
@@ -315,34 +435,28 @@ class DeliveryDetailsScreen extends StatefulWidget {
 
 class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
   final _idController = TextEditingController();
-
-  void _pay() {
-    if (_idController.text.isEmpty) return;
-    Navigator.push(context, CupertinoPageRoute(builder: (_) => PaymentScreen(price: widget.price, pack: "${widget.uc} UC", gameId: _idController.text.trim())));
-  }
-
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(middle: Text("Delivery Details")),
-      child: SafeArea(
+    return Scaffold(
+      appBar: AppBar(title: const Text("Delivery Details")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  const Text("BGMI Game Id", style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  CupertinoTextField(controller: _idController, placeholder: "Enter Game ID", keyboardType: TextInputType.number, style: const TextStyle(color: CupertinoColors.white), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(8))),
-                ],
+            TextField(controller: _idController, keyboardType: TextInputType.number, decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1A1A1A), labelText: "BGMI Game ID", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity, height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: () {
+                  if (_idController.text.isNotEmpty) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(price: widget.price, pack: "${widget.uc} UC", gameId: _idController.text.trim())));
+                  }
+                },
+                child: Text("Proceed to Pay ₹${widget.price}", style: const TextStyle(fontSize: 18, color: Colors.white)),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: const Color(0xFF1A1A1A),
-              child: SizedBox(width: double.infinity, child: CupertinoButton.filled(onPressed: _pay, child: Text("Pay ₹${widget.price}"))),
-            ),
+            )
           ],
         ),
       ),
@@ -350,11 +464,9 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
   }
 }
 
-// ================= PAYMENT SCREEN (UPI & WALLET) =================
+// ================= DIRECT PAYMENT (ITEM PURCHASE) SCREEN =================
 class PaymentScreen extends StatefulWidget {
-  final int price;
-  final String pack;
-  final String gameId;
+  final int price; final String pack; final String gameId;
   const PaymentScreen({super.key, required this.price, required this.pack, required this.gameId});
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -363,9 +475,8 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   final UpiIndia _upi = UpiIndia();
   List<UpiApp>? _apps;
-  String? _selected;
-  bool _loading = true;
   int _wallet = 0;
+  bool _loading = true;
 
   @override
   void initState() {
@@ -377,80 +488,89 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final snap = await FirebaseDatabase.instance.ref("users/$uid/balance").get();
     if (snap.exists) _wallet = (snap.value as num).toInt();
-    try {
-      _apps = await _upi.getAllUpiApps(mandatoryTransactionId: false);
-    } catch (e) {
-      debugPrint("UPI Error: $e");
-    }
-    setState(() => _loading = false);
+    _upi.getAllUpiApps(mandatoryTransactionId: false).then((v) { setState(() { _apps = v; _loading = false; }); }).catchError((e) { setState(() => _loading = false); });
   }
 
-  void _processUPI(UpiApp app) async {
+  void _payWithWallet() async {
+    if (_wallet < widget.price) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insufficient Wallet Balance!")));
+      return;
+    }
+    setState(() => _loading = true);
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final db = FirebaseDatabase.instance.ref();
+    
+    final res = await db.child("users/$uid/balance").runTransaction((current) {
+      int bal = current == null ? 0 : (current as num).toInt();
+      if (bal < widget.price) return Transaction.abort();
+      return Transaction.success(bal - widget.price);
+    });
+
+    if (res.committed) {
+      await db.child("orders").push().set({'uid': uid, 'gameId': widget.gameId, 'pack': widget.pack, 'price': widget.price, 'method': 'Wallet', 'status': 'Paid', 'timestamp': ServerValue.timestamp});
+      _successDialog();
+    } else {
+      setState(() => _loading = false);
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Transaction Failed!")));
+    }
+  }
+
+  void _payWithUPI(UpiApp app) async {
     setState(() => _loading = true);
     try {
       UpiResponse res = await _upi.startTransaction(
-        app: app,
-        receiverUpiId: "8406962570@ybl",
-        receiverName: "Rooter Shop",
-        transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: widget.price.toDouble(),
+        app: app, receiverUpiId: "8406962570@ybl", receiverName: "Rooter Shop", transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(), amount: widget.price.toDouble(),
       );
       if (res.status == UpiPaymentStatus.SUCCESS) {
-        await FirebaseDatabase.instance.ref("orders").push().set({'uid': FirebaseAuth.instance.currentUser!.uid, 'gameId': widget.gameId, 'pack': widget.pack, 'price': widget.price, 'method': app.name, 'status': 'Paid'});
-        _showDialog("Success", "Order Placed!");
+        await FirebaseDatabase.instance.ref("orders").push().set({'uid': FirebaseAuth.instance.currentUser!.uid, 'gameId': widget.gameId, 'pack': widget.pack, 'price': widget.price, 'method': app.name, 'status': 'Paid', 'timestamp': ServerValue.timestamp});
+        _successDialog();
       } else {
-        _showDialog("Failed", "Payment not completed.");
+        if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Failed or Cancelled")));
       }
     } catch (e) {
-      _showDialog("Error", e.toString());
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
     setState(() => _loading = false);
   }
 
-  void _showDialog(String title, String msg) {
-    showCupertinoDialog(context: context, builder: (ctx) => CupertinoAlertDialog(title: Text(title), content: Text(msg), actions: [CupertinoDialogAction(child: const Text("OK"), onPressed: () { Navigator.pop(ctx); if (title == "Success") Navigator.popUntil(context, (r) => r.isFirst); })]));
+  void _successDialog() {
+    showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: const Text("Success ✅"), content: const Text("Order Placed Successfully!"),
+      actions: [TextButton(onPressed: () { Navigator.pop(ctx); Navigator.popUntil(context, (r) => r.isFirst); }, child: const Text("OK"))],
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(middle: Text("Payment")),
-      child: SafeArea(
-        child: _loading ? const Center(child: CupertinoActivityIndicator()) : ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text("Wallet", style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Material(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(12), child: ListTile(leading: const Icon(CupertinoIcons.creditcard, color: CupertinoColors.activeBlue), title: const Text("Pay using Wallet", style: TextStyle(color: CupertinoColors.white)), subtitle: Text("Bal: ₹$_wallet", style: TextStyle(color: _wallet < widget.price ? CupertinoColors.destructiveRed : CupertinoColors.systemGrey)), onTap: () => setState(() => _selected = 'wallet'), trailing: _selected == 'wallet' ? const Icon(CupertinoIcons.check_mark_circled, color: CupertinoColors.activeBlue) : null)),
-            const SizedBox(height: 24),
-            const Text("UPI", style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            if (_apps != null) ..._apps!.map((a) => Material(color: const Color(0xFF1A1A1A), child: ListTile(leading: Image.memory(a.icon, width: 30), title: Text(a.name, style: const TextStyle(color: CupertinoColors.white)), onTap: () => setState(() => _selected = a.name), trailing: _selected == a.name ? const Icon(CupertinoIcons.check_mark_circled, color: CupertinoColors.activeBlue) : null))),
-            const SizedBox(height: 40),
-            CupertinoButton.filled(
-              child: Text("Pay ₹${widget.price}"),
-              onPressed: () {
-                if (_selected == null) return _showDialog("Select", "Choose a payment method");
-                if (_selected == 'wallet') {
-                  if (_wallet < widget.price) return _showDialog("Error", "Low balance");
-                  // Deduct wallet logic can be added here
-                } else {
-                  _processUPI(_apps!.firstWhere((a) => a.name == _selected));
-                }
-              },
-            )
-          ],
-        ),
+    return Scaffold(
+      appBar: AppBar(title: const Text("Payment Methods")),
+      body: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text("Pay using Wallet", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 10),
+          Card(
+            color: const Color(0xFF1A1A1A),
+            child: ListTile(
+              leading: const Icon(Icons.account_balance_wallet, color: Colors.blueAccent, size: 30),
+              title: const Text("Wallet Balance"),
+              subtitle: Text("₹$_wallet", style: TextStyle(color: _wallet < widget.price ? Colors.redAccent : Colors.greenAccent, fontWeight: FontWeight.bold)),
+              trailing: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: _wallet >= widget.price ? Colors.blueAccent : Colors.grey),
+                onPressed: _wallet >= widget.price ? _payWithWallet : null,
+                child: const Text("Pay", style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+          const Text("Direct UPI Payment", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 10),
+          if (_apps != null) ..._apps!.map((a) => Card(
+            color: const Color(0xFF1A1A1A),
+            child: ListTile(leading: Image.memory(a.icon, width: 30), title: Text(a.name), trailing: const Icon(Icons.arrow_forward_ios, size: 16), onTap: () => _payWithUPI(a)),
+          )),
+        ],
       ),
     );
-  }
-}
-
-// ================= ORDERS SCREEN PLACEHOLDER =================
-class OrdersScreen extends StatelessWidget {
-  const OrdersScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const CupertinoPageScaffold(navigationBar: CupertinoNavigationBar(middle: Text("My Orders")), child: Center(child: Text("No Orders Yet", style: TextStyle(color: CupertinoColors.systemGrey))));
   }
 }
