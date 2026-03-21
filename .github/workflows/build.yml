@@ -29,22 +29,18 @@ jobs:
           flutter-version: '3.19.0'
           channel: 'stable'
 
-      # 🔥 YAHAN HAI ASLI JADUU 🔥
-      # Ye step purane folder ko delete karke naya banayega aur Firebase key ko safe rakhega
+      # Yahan humne project-name 'bgmi' (small letters) add kar diya hai
       - name: Nuclear Fix for V2 Embedding
         run: |
-          # 1. Agar Firebase JSON hai toh usko bacha lo
           if [ -f "android/app/google-services.json" ]; then
             cp android/app/google-services.json ./google-services-backup.json
           fi
           
-          # 2. Purana corrupted Android folder hamesha ke liye delete kar do
           rm -rf android
           
-          # 3. Ek naya, 100% updated Android folder banao (V2 Embedding ke sath)
-          flutter create . --platforms=android --org com.bgmiuc
+          # Niche wali line me --project-name bgmi add kiya gaya hai
+          flutter create . --project-name bgmi --platforms=android --org com.bgmiuc
           
-          # 4. Firebase JSON ko wapas uski jagah rakh do
           if [ -f "./google-services-backup.json" ]; then
             cp ./google-services-backup.json android/app/google-services.json
           fi
