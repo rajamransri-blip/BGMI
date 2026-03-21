@@ -1,14 +1,13 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart'; // For some specific UI elements like BottomSheet
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Firebase initialization
   try {
     await Firebase.initializeApp();
   } catch (e) {
-    debugPrint("Firebase init error: $e");
+    debugPrint("Firebase Error: $e");
   }
   runApp(const UCSellerApp());
 }
@@ -51,7 +50,8 @@ class HomeScreen extends StatelessWidget {
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
-              child: const Icon(CupertinoIcons.wallet_pass, color: CupertinoColors.white),
+              // Icon fixed from wallet_pass to creditcard
+              child: const Icon(CupertinoIcons.creditcard, color: CupertinoColors.white),
               onPressed: () {},
             ),
           ],
@@ -61,23 +61,34 @@ class HomeScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            // Search Bar
-            CupertinoSearchTextField(
-              backgroundColor: const Color(0xFF2A2A2A),
+            const CupertinoSearchTextField(
+              backgroundColor: Color(0xFF2A2A2A),
               placeholder: 'Search for BGMI UC, Valorant & more',
-              style: const TextStyle(color: CupertinoColors.white),
+              style: TextStyle(color: CupertinoColors.white),
             ),
             const SizedBox(height: 20),
             const Text('For You', style: TextStyle(color: CupertinoColors.white, fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            // Products Grid
             Row(
               children: [
-                Expanded(child: ProductCard(title: 'BGMI UC', subtitle: '10% Savings', imageIcon: CupertinoIcons.game_controller_solid, onTap: () {
-                  Navigator.push(context, CupertinoPageRoute(builder: (context) => const DetailsScreen()));
-                })),
+                Expanded(
+                  child: ProductCard(
+                    title: 'BGMI UC', 
+                    subtitle: '10% Savings', 
+                    imageIcon: CupertinoIcons.game_controller_solid, 
+                    onTap: () {
+                      Navigator.push(context, CupertinoPageRoute(builder: (context) => const DetailsScreen()));
+                    }
+                  )
+                ),
                 const SizedBox(width: 16),
-                Expanded(child: ProductCard(title: 'Valorant Points', subtitle: '17.8% Savings', imageIcon: CupertinoIcons.desktopcomputer)),
+                const Expanded(
+                  child: ProductCard(
+                    title: 'Valorant Points', 
+                    subtitle: '17.8% Savings', 
+                    imageIcon: CupertinoIcons.desktopcomputer
+                  )
+                ),
               ],
             ),
           ],
@@ -100,10 +111,7 @@ class ProductCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(16),
-        ),
+        decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(16)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -146,6 +154,25 @@ class _DetailsScreenState extends State<DetailsScreen> {
   final TextEditingController _gameIdController = TextEditingController();
   bool _saveDetails = true;
 
+  void _proceedToPay() {
+    if (_gameIdController.text.trim().isEmpty) {
+      showCupertinoDialog(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Error'),
+          content: const Text('Please enter a valid BGMI Game ID.'),
+          actions: [
+            CupertinoDialogAction(child: const Text('OK'), onPressed: () => Navigator.pop(context))
+          ],
+        ),
+      );
+      return;
+    }
+    Navigator.push(context, CupertinoPageRoute(
+      builder: (context) => PaymentScreen(gameId: _gameIdController.text.trim())
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
@@ -160,7 +187,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Banner Area
                   Container(
                     height: 150,
                     decoration: BoxDecoration(color: const Color(0xFF2A2A2A), borderRadius: BorderRadius.circular(16)),
@@ -169,8 +195,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   const SizedBox(height: 20),
                   const Text('Delivery Details', style: TextStyle(color: CupertinoColors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
-                  
-                  // Game ID Input (iOS Style)
                   CupertinoTextField(
                     controller: _gameIdController,
                     placeholder: 'Enter BGMI gaming id',
@@ -178,15 +202,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                     style: const TextStyle(color: CupertinoColors.white),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(color: const Color(0xFF2A2A2A), borderRadius: BorderRadius.circular(8)),
-                    suffix: CupertinoButton(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: const Text('Verify', style: TextStyle(color: CupertinoColors.systemGrey)),
-                      onPressed: () {},
-                    ),
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Save Details Checkbox Row
                   Row(
                     children: [
                       CupertinoSwitch(
@@ -201,8 +218,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 ],
               ),
             ),
-            
-            // Bottom Pay Button
             Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
@@ -212,14 +227,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: CupertinoButton.filled(
+                  onPressed: _proceedToPay,
                   child: const Text('Pay ₹75'),
-                  onPressed: () {
-                    if (_gameIdController.text.isEmpty) {
-                      // Basic Validation
-                      return;
-                    }
-                    Navigator.push(context, CupertinoPageRoute(builder: (context) => const PaymentScreen()));
-                  },
                 ),
               ),
             )
@@ -230,9 +239,73 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 }
 
-// ================= PAYMENT SCREEN =================
-class PaymentScreen extends StatelessWidget {
-  const PaymentScreen({super.key});
+// ================= PAYMENT SCREEN (WITH FIREBASE) =================
+class PaymentScreen extends StatefulWidget {
+  final String gameId;
+  const PaymentScreen({super.key, required this.gameId});
+
+  @override
+  State<PaymentScreen> createState() => _PaymentScreenState();
+}
+
+class _PaymentScreenState extends State<PaymentScreen> {
+  bool _isProcessing = false;
+
+  Future<void> _processPayment(String method) async {
+    setState(() => _isProcessing = true);
+
+    try {
+      // 1. Database reference
+      final databaseRef = FirebaseDatabase.instance.ref("orders");
+      
+      // 2. Data save karna Firebase me
+      await databaseRef.push().set({
+        "game_id": widget.gameId,
+        "amount": "₹75",
+        "payment_method": method,
+        "status": "pending", // Ise 'success' kar sakte hain real payment ke baad
+        "timestamp": DateTime.now().toIso8601String(),
+      });
+
+      // 3. Success Message
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('Order Placed!'),
+            content: Text('Your order for Game ID: ${widget.gameId} has been saved to Firebase.'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('OK'),
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context); // Go back to Details
+                  Navigator.pop(context); // Go back to Home
+                },
+              )
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('Error'),
+            content: Text('Failed to save order: $e'),
+            actions: [
+              CupertinoDialogAction(child: const Text('OK'), onPressed: () => Navigator.pop(context))
+            ],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -242,54 +315,40 @@ class PaymentScreen extends StatelessWidget {
         middle: Text('Payment Methods', style: TextStyle(color: CupertinoColors.white)),
       ),
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: Stack(
           children: [
-            const Text('UPI', style: TextStyle(color: CupertinoColors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            _buildPaymentOption(context, 'Google Pay', 'gpay_icon'),
-            _buildPaymentOption(context, 'Paytm', 'paytm_icon'),
-            _buildPaymentOption(context, 'PhonePe', 'phonepe_icon'),
+            ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const Text('UPI', style: TextStyle(color: CupertinoColors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                _buildPaymentOption('Google Pay'),
+                _buildPaymentOption('Paytm'),
+                _buildPaymentOption('PhonePe'),
+              ],
+            ),
+            if (_isProcessing)
+              Container(
+                color: CupertinoColors.black.withOpacity(0.5),
+                child: const Center(
+                  child: CupertinoActivityIndicator(radius: 20),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPaymentOption(BuildContext context, String title, String iconPlaceholder) {
+  Widget _buildPaymentOption(String title) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF2A2A2A), borderRadius: BorderRadius.circular(12)),
       child: CupertinoListTile(
         title: Text(title, style: const TextStyle(color: CupertinoColors.white)),
         leading: const Icon(CupertinoIcons.money_dollar_circle, color: CupertinoColors.systemGrey),
         trailing: const Icon(CupertinoIcons.circle, color: CupertinoColors.systemGrey),
-        onTap: () {
-          // Yaha aap real UPI Deep Linking ya Payment Gateway ka code lagayenge
-          _showSuccessDialog(context);
-        },
-      ),
-    );
-  }
-
-  void _showSuccessDialog(BuildContext context) {
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Payment Processing'),
-        content: const Text('Integrate Razorpay / UPI intent here.'),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('OK'),
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back to details
-            },
-          )
-        ],
+        onTap: () => _processPayment(title),
       ),
     );
   }
