@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart'; // basic ListTile
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:upi_india/upi_india.dart'; // crucial package
+import 'package:upi_india/upi_india.dart';
 
 class PaymentMethodsScreen extends StatefulWidget {
   final int price;
@@ -29,7 +29,6 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 
   void _checkWalletAndUPI() async {
-    // 1. Fetch wallet balance from Firebase
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final snapshot = await FirebaseDatabase.instance.ref("users/$uid/balance").get();
     if (snapshot.exists) {
@@ -41,7 +40,6 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       _insufficientWallet = true;
     }
 
-    // 2. Load UPI apps installed on device
     try {
       final apps = await _upiIndia.getAllUpiApps(mandatoryTransactionId: false);
       setState(() {
@@ -58,7 +56,6 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final databaseRef = FirebaseDatabase.instance.ref();
     
-    // Perform transaction to ensure atomic update
     final transactionResult = await databaseRef.child("users/$uid/balance").runTransaction((Object? currentBalance) {
       if (currentBalance == null) return Transaction.abort();
       int current = (currentBalance as num).toInt();
@@ -67,7 +64,6 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     });
 
     if (transactionResult.committed) {
-      // Record order in Firebase
       await databaseRef.child("orders").push().set({
         'uid': uid,
         'gameId': widget.gameId,
@@ -84,20 +80,16 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     setState(() => _isLoadingWallet = false);
   }
 
-  // CORE WORKING UPI INTENT PAYMENT
   void _processUPIPayment(UpiApp app) async {
     setState(() => _isLoadingWallet = true);
-    
-    // Generate a simple unique transaction ID for local tracking if needed
     final txnId = DateTime.now().millisecondsSinceEpoch.toString();
-
     UpiResponse? response;
     try {
       response = await _upiIndia.startTransaction(
         app: app,
-        receiverUpiId: "8406962570@ybl", // YOUR REQUESTED UPI VPA ID
+        receiverUpiId: "8406962570@ybl",
         receiverName: "Rooter Shop BGMI UC",
-        transactionRefId: txnId, // Local tracking ID
+        transactionRefId: txnId,
         transactionNote: "BGMI UC Pack: ${widget.ucPack} for Game ID: ${widget.gameId}",
         amount: widget.price.toDouble(),
       );
@@ -110,10 +102,9 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
     if (response == null) return;
 
-    // Handle UPI response
+    // FIX 1: USER_CANCELLED hata kar default laga diya
     switch (response.status) {
       case UpiPaymentStatus.SUCCESS:
-        // Record successful order in Firebase
         final uid = FirebaseAuth.instance.currentUser!.uid;
         await FirebaseDatabase.instance.ref("orders").push().set({
           'uid': uid,
@@ -132,8 +123,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       case UpiPaymentStatus.FAILURE:
         _showError("Payment Failed: ${response.approvalRefNo}");
         break;
-      case UpiPaymentStatus.USER_CANCELLED:
-        _showInfo("Payment Cancelled by user.");
+      default:
+        _showInfo("Payment Cancelled or Unknown Status.");
         break;
     }
   }
@@ -146,7 +137,6 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         title: const Text("Success ✅"),
         content: const Text("Order placed successfully! UC will be delivered soon."),
         actions: [CupertinoDialogAction(child: const Text("OK"), onPressed: () {
-          // Navegate back to main screen
           Navigator.popUntil(context, (route) => route.isFirst);
         })],
       ),
@@ -173,7 +163,6 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
               ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Replication of image_3.png UI
                   const Text("Shopping Card", style: TextStyle(color: CupertinoColors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Material(
@@ -201,7 +190,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                               if (!_insufficientWallet) CupertinoButton(padding: EdgeInsets.zero, child: Text(_selectedMethod == 'Wallet' ? 'Selected ✅' : 'Pay Using Wallet'), onPressed: () => setState(() => _selectedMethod = 'Wallet')),
                             ],
                           ),
-                          if (_insufficientWallet) const Padding(padding: EdgeInsets.top(12), child: Text("Not enough balance to purchase this product.", style: TextStyle(color: CupertinoColors.destructiveRed, fontSize: 12))),
+                          // FIX 2: EdgeInsets.only(top: 12) kar diya gaya hai
+                          if (_insufficientWallet) const Padding(padding: EdgeInsets.only(top: 12), child: Text("Not enough balance to purchase this product.", style: TextStyle(color: CupertinoColors.destructiveRed, fontSize: 12))),
                         ],
                       ),
                     ),
@@ -225,10 +215,9 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                       ),
                     )).toList(),
                   ),
-                  const SizedBox(height: 80), // bottom spacing for fixed button
+                  const SizedBox(height: 80),
                 ],
               ),
-              // Fixed Bottom Pay button replicating image_3.png
               Positioned(
                 bottom: 0, left: 0, right: 0,
                 child: Container(
@@ -236,7 +225,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                   color: const Color(0xFF1A1A1A),
                   child: Row(
                     children: [
-                      const Icon(CupertinoIcons.shippingbox, color: CupertinoColors.activeBlue, size: 20),
+                      // FIX 3: shippingbox ko cube_box kar diya gaya hai
+                      const Icon(CupertinoIcons.cube_box, color: CupertinoColors.activeBlue, size: 20),
                       const SizedBox(width: 8),
                       Expanded(child: Text(widget.gameId, style: const TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold))),
                       const SizedBox(width: 8),
