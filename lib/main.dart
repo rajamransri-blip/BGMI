@@ -176,16 +176,13 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signInWithGitHub() async {
     setState(() => _isLoading = true);
     try {
-      // Create a new provider
-      GitHubAuthProvider githubProvider = GitHubAuthProvider();
-      // You must enable GitHub in Firebase Console and add OAuth credentials
-      githubProvider.addScope('user:email');
-      UserCredential userCred = await FirebaseAuth.instance.signInWithPopup(githubProvider);
-      // For web, use signInWithPopup. For mobile, you may need a custom redirect.
-      // Here we use signInWithProvider (works on Android/iOS if OAuth is set up)
-      // Actually, on mobile you need to use signInWithCredential with a custom token,
-      // but for simplicity we assume web or pre-configured.
-      // For production, implement proper GitHub OAuth flow.
+      // Create an OAuth provider for GitHub
+      final provider = OAuthProvider('github.com');
+      provider.addScope('user:email');
+      UserCredential userCred = await FirebaseAuth.instance.signInWithPopup(provider);
+      // For mobile, you need to handle redirects properly; this works on web.
+      // For mobile, you can use signInWithCredential after getting token via webview.
+      // For simplicity, we assume web or a pre-configured environment.
       final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
       final snap = await userRef.get();
       if (!snap.exists) {
@@ -559,7 +556,7 @@ class BgmiPacksScreen extends StatelessWidget {
   }
 }
 
-// ================= VALORANT PACKS (simple) =================
+// ================= VALORANT PACKS =================
 class ValorantPacksScreen extends StatelessWidget {
   const ValorantPacksScreen({super.key});
 
@@ -577,18 +574,21 @@ class ValorantPacksScreen extends StatelessWidget {
         itemCount: packs.length,
         itemBuilder: (context, index) {
           final p = packs[index];
-          int discountedPrice = (p['price']! * (100 - p['discount']!) / 100).round();
+          int vp = p['vp'] as int; // explicitly cast to int
+          int price = p['price'] as int;
+          int discount = p['discount'] as int;
+          int discountedPrice = (price * (100 - discount) / 100).round();
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               leading: const Icon(Icons.computer, color: Color(0xFFFF4655), size: 36),
-              title: Text("${p['vp']} VP", style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text("₹${p['price']} → ₹$discountedPrice", style: const TextStyle(color: Colors.green)),
+              title: Text("$vp VP", style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text("₹$price → ₹$discountedPrice", style: const TextStyle(color: Colors.green)),
               trailing: ElevatedButton(
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => DeliveryDetailsScreen(uc: p['vp'], price: discountedPrice, packName: "${p['vp']} VP"),
+                    builder: (_) => DeliveryDetailsScreen(uc: vp, price: discountedPrice, packName: "$vp VP"),
                   ),
                 ),
                 child: Text("₹$discountedPrice"),
@@ -750,7 +750,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       UpiResponse res = await _upi.startTransaction(
         app: app,
-        receiverUpiId: "8406962570@ybl",
+        receiverUpiId: "paynearby.8406962570@indus", // Updated UPI ID
         receiverName: "Rooter Shop",
         transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
         amount: widget.price.toDouble(),
@@ -776,17 +776,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _showSuccessDialog() {
-    showDialog(
+    showCupertinoDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 10), Text("Success!")],
-        ),
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text("Success"),
         content: const Text("Your order has been placed successfully."),
         actions: [
-          TextButton(
+          CupertinoDialogAction(
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.popUntil(context, (route) => route.isFirst);
@@ -895,7 +892,7 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
     try {
       UpiResponse res = await _upi.startTransaction(
         app: app,
-        receiverUpiId: "8406962570@ybl",
+        receiverUpiId: "paynearby.8406962570@indus", // Updated UPI ID
         receiverName: "Rooter Shop",
         transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
         amount: amount.toDouble(),
