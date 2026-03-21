@@ -1,17 +1,18 @@
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+// 1. Firebase package import karein
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'screens/auth_screen.dart';
-import 'screens/home_screen.dart';
+
+// Aapke dusre local screens ke import bhi yahan honge
+// Jaise ke: import 'package:bgmi_uc_shop/screens/home_screen.dart';
 
 void main() async {
+  // 2. Yeh line mandatory hai async functions ke liye jo initialization karte hain
   WidgetsFlutterBinding.ensureInitialized();
-  // Call Firebase initialize correctly
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint("Firebase init error: $e");
-  }
+
+  // 3. Yahan Firebase ko initialize karein
+  await Firebase.initializeApp();
+
+  // 4. Uske baad app run karein
   runApp(const RooterShopApp());
 }
 
@@ -20,35 +21,16 @@ class RooterShopApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CupertinoApp(
+    return MaterialApp(
       title: 'Rooter SHOP',
-      theme: CupertinoThemeData(
+      theme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: CupertinoColors.activeBlue,
-        scaffoldBackgroundColor: Color(0xFF0F0F0F),
+        primaryColor: Colors.blue,
+        scaffoldBackgroundColor: const Color(0xFF101010), // image_0 ke dark look ke liye
       ),
-      // Check auth state to show either login or home screen
-      home: AuthStateWrapper(),
-    );
-  }
-}
-
-class AuthStateWrapper extends StatelessWidget {
-  const AuthStateWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CupertinoPageScaffold(child: Center(child: CupertinoActivityIndicator()));
-        }
-        if (snapshot.hasData) {
-          return const HomeScreen(); // Logged in
-        }
-        return const AuthScreen(); // Not logged in
-      },
+      // Yahan aap apna original Home screen ka code link karein
+      // home: const HomeScreen(), 
+      home: const Scaffold(body: Center(child: Text('Firebase Initialized!'))), // Yeh testing ke liye hai
     );
   }
 }
