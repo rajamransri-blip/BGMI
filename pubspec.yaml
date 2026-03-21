@@ -1,8 +1,6 @@
 name: bgmi
-description: A new Flutter project.
-
+description: Rooter Shop - BGMI UC & Gaming Store
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
@@ -12,14 +10,20 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  
-  # Firebase Packages
+
+  # Firebase
   firebase_core: ^2.32.0
+  firebase_auth: ^4.17.9
   firebase_database: ^10.5.7
-  firebase_auth: ^4.17.9   # NAYA: Login aur Register ke liye
-  
-  # Payment Package
-  upi_india: ^3.0.1        # NAYA: PhonePe, GPay, Paytm open karne ke liye
+
+  # UPI payments
+  upi_india: ^3.0.1
+
+  # Google Sign-In
+  google_sign_in: ^6.2.1
+
+  # Date formatting
+  intl: ^0.18.1
 
 dev_dependencies:
   flutter_test:
