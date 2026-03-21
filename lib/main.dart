@@ -1,18 +1,25 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-// 1. Firebase package import karein
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-// Aapke dusre local screens ke import bhi yahan honge
-// Jaise ke: import 'package:bgmi_uc_shop/screens/home_screen.dart';
+// Yahan hum apne banaye hue screens import kar rahe hain
+import 'screens/auth_screen.dart';
+import 'screens/home_screen.dart';
 
 void main() async {
-  // 2. Yeh line mandatory hai async functions ke liye jo initialization karte hain
+  // 1. Flutter engine ko initialize karna
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 3. Yahan Firebase ko initialize karein
-  await Firebase.initializeApp();
+  // 2. Firebase ko initialize karna
+  try {
+    await Firebase.initializeApp();
+    debugPrint("Firebase Initialized Successfully!");
+  } catch (e) {
+    debugPrint("Firebase Init Error: $e");
+  }
 
-  // 4. Uske baad app run karein
+  // 3. App run karna
   runApp(const RooterShopApp());
 }
 
@@ -21,16 +28,44 @@ class RooterShopApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    // iOS (Cupertino) design use kar rahe hain jaisa aapne manga tha
+    return const CupertinoApp(
       title: 'Rooter SHOP',
-      theme: ThemeData(
+      theme: CupertinoThemeData(
         brightness: Brightness.dark,
-        primaryColor: Colors.blue,
-        scaffoldBackgroundColor: const Color(0xFF101010), // image_0 ke dark look ke liye
+        primaryColor: CupertinoColors.activeBlue,
+        scaffoldBackgroundColor: Color(0xFF0F0F0F),
       ),
-      // Yahan aap apna original Home screen ka code link karein
-      // home: const HomeScreen(), 
-      home: const Scaffold(body: Center(child: Text('Firebase Initialized!'))), // Yeh testing ke liye hai
+      // AuthStateWrapper decide karega ki Login screen dikhani hai ya Home screen
+      home: AuthStateWrapper(),
+    );
+  }
+}
+
+// Yeh class automatically check karti hai ki user logged in hai ya nahi
+class AuthStateWrapper extends StatelessWidget {
+  const AuthStateWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // Jab tak Firebase check kar raha hai, loading spinner dikhayega
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CupertinoPageScaffold(
+            child: Center(child: CupertinoActivityIndicator()),
+          );
+        }
+        
+        // Agar user pehle se login hai, toh direct Home Screen par bhej do
+        if (snapshot.hasData) {
+          return const HomeScreen(); 
+        }
+        
+        // Agar naya user hai ya logout ho chuka hai, toh Login/Register Screen dikhao
+        return const AuthScreen(); 
+      },
     );
   }
 }
