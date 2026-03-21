@@ -44,7 +44,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: const Color(0xFFFF3B30), // Red accent
+        primaryColor: const Color(0xFFFF3B30),
         scaffoldBackgroundColor: Colors.black,
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1C1C1E),
@@ -161,7 +161,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     setState(() => _isLoading = false);
   }
 
-  // ----- Google Sign‑In (mobile) -----
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
@@ -176,7 +175,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         idToken: googleAuth.idToken,
       );
       UserCredential userCred = await FirebaseAuth.instance.signInWithCredential(credential);
-      // Check if user exists in database
       final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
       final snap = await userRef.get();
       if (!snap.exists) {
@@ -187,12 +185,11 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         });
       }
     } catch (e) {
-      _showSnackbar("Google Sign-In failed: ${e.toString()}\n\nMake sure you've added SHA-1 fingerprint and OAuth client ID in Firebase Console.");
+      _showSnackbar("Google Sign-In failed: ${e.toString()}\n\nMake sure you've added SHA-1 fingerprint in Firebase Console.");
     }
     setState(() => _isLoading = false);
   }
 
-  // ----- GitHub Sign‑In (mobile using WebView) -----
   Future<void> _signInWithGitHub() async {
     setState(() => _isLoading = true);
     try {
@@ -201,8 +198,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         MaterialPageRoute(builder: (_) => const GitHubOAuthWebView()),
       );
       if (result != null && result is String) {
-        // Exchange code for custom token via your backend
-        // For demo, show dialog
         _showSnackbar("GitHub sign-in requires a backend to exchange the code.");
       } else {
         _showSnackbar("GitHub sign-in cancelled.");
@@ -322,8 +317,8 @@ class _GitHubOAuthWebViewState extends State<GitHubOAuthWebView> {
   @override
   void initState() {
     super.initState();
-    final clientId = 'Ov23lieu1w75z4ePWLYu'; // Replace with your GitHub OAuth App Client ID
-    final redirectUri = Uri.encodeComponent('https://bgmiuc-74295.firebaseapp.com/__/auth/handler'); // Firebase Auth domain
+    final clientId = 'YOUR_GITHUB_CLIENT_ID';
+    final redirectUri = Uri.encodeComponent('https://bgmiuc-74295.firebaseapp.com/__/auth/handler');
     final authUrl = 'https://github.com/login/oauth/authorize?client_id=$clientId&redirect_uri=$redirectUri&scope=user:email';
 
     _controller = WebViewController()
@@ -332,13 +327,9 @@ class _GitHubOAuthWebViewState extends State<GitHubOAuthWebView> {
         NavigationDelegate(
           onPageStarted: (String url) {
             setState(() => _isLoading = true);
-            // Check if we got a code in the URL
             if (url.contains('code=')) {
               final code = Uri.parse(url).queryParameters['code'];
-              if (code != null) {
-                // Pop with the code
-                Navigator.pop(context, code);
-              }
+              if (code != null) Navigator.pop(context, code);
             }
           },
           onPageFinished: (String url) => setState(() => _isLoading = false),
@@ -380,7 +371,7 @@ class _GitHubOAuthWebViewState extends State<GitHubOAuthWebView> {
   }
 }
 
-// ================= HOME SCREEN (Glassmorphism Packs) =================
+// ================= HOME SCREEN =================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -495,8 +486,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [Colors.red.shade900.withOpacity(0.3), Colors.black.withOpacity(0.5)],
-                      borderRadius: BorderRadius.circular(20),
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: const ListTile(
                     leading: Icon(Icons.card_giftcard, color: Colors.grey),
@@ -620,13 +613,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           children: [
             Container(
               height: 180,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
                   colors: [Color(0xFFFF3B30), Color(0xFF8B0000)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
               ),
               child: Center(
                 child: Column(
@@ -873,6 +866,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 const Text("Pay using Wallet", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 10),
                 Card(
+                  color: const Color(0xFF1C1C1E),
                   child: ListTile(
                     leading: const Icon(Icons.account_balance_wallet, color: Color(0xFFFF3B30), size: 30),
                     title: const Text("Wallet Balance"),
@@ -894,6 +888,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 const SizedBox(height: 10),
                 if (_apps != null)
                   ..._apps!.map((a) => Card(
+                        color: const Color(0xFF1C1C1E),
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           leading: Image.memory(a.icon, width: 30),
@@ -1020,6 +1015,7 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
                   const SizedBox(height: 10),
                   if (_apps != null)
                     ..._apps!.map((a) => Card(
+                          color: const Color(0xFF1C1C1E),
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ListTile(
                             leading: Image.memory(a.icon, width: 30),
@@ -1075,6 +1071,7 @@ class OrderHistoryScreen extends StatelessWidget {
               var data = entries[index].value;
               String status = data['status'] ?? "Pending";
               return Card(
+                color: const Color(0xFF1C1C1E),
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(
                   leading: const Icon(Icons.shopping_bag, color: Color(0xFFFF3B30)),
@@ -1162,6 +1159,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Card(
+                  color: const Color(0xFF1C1C1E),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
