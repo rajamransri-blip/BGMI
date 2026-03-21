@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart'; // ← Added for iOS-style dialogs
+import 'package:flutter/cupertino.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:upi_india/upi_india.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:intl/intl.dart';
 
 void main() async {
@@ -95,19 +96,35 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 
-// ================= AUTH SCREEN (Email, Google, GitHub) =================
+// ================= AUTH SCREEN =================
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   void _showSnackbar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -158,7 +175,6 @@ class _AuthScreenState extends State<AuthScreen> {
         idToken: googleAuth.idToken,
       );
       UserCredential userCred = await FirebaseAuth.instance.signInWithCredential(credential);
-      // Check if user exists in database
       final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
       final snap = await userRef.get();
       if (!snap.exists) {
@@ -169,7 +185,7 @@ class _AuthScreenState extends State<AuthScreen> {
         });
       }
     } catch (e) {
-      _showSnackbar(e.toString());
+      _showSnackbar("Google Sign-In failed: ${e.toString()}");
     }
     setState(() => _isLoading = false);
   }
@@ -177,18 +193,20 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signInWithGitHub() async {
     setState(() => _isLoading = true);
     try {
-      // Create an OAuth provider for GitHub (works on web, for mobile you need a custom redirect)
-      final provider = OAuthProvider('github.com');
-      provider.addScope('user:email');
-      UserCredential userCred = await FirebaseAuth.instance.signInWithPopup(provider);
-      final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
-      final snap = await userRef.get();
-      if (!snap.exists) {
-        await userRef.set({
-          'balance': 0,
-          'email': userCred.user!.email ?? 'github_user',
-          'createdAt': ServerValue.timestamp,
-        });
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const GitHubOAuthWebView()),
+      );
+      if (result != null && result is String) {
+        // In production, you'd exchange the code with your backend to get a Firebase custom token.
+        // For this demo, we simulate success and create a dummy user.
+        // Replace this with actual custom token sign-in.
+        _showSnackbar("GitHub sign-in requires a backend to exchange the code.");
+        // Example: 
+        // final customToken = await yourBackendExchange(result);
+        // await FirebaseAuth.instance.signInWithCustomToken(customToken);
+      } else {
+        _showSnackbar("GitHub sign-in cancelled.");
       }
     } catch (e) {
       _showSnackbar("GitHub Sign-In failed: ${e.toString()}");
@@ -200,88 +218,160 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.shopping_bag, size: 80, color: Color(0xFF0A84FF)),
-                const SizedBox(height: 12),
-                const Text("Rooter SHOP", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 48),
-                TextField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    hintText: "Email",
-                    prefixIcon: Icon(Icons.email_outlined),
+        child: FadeTransition(
+          opacity: _animationController,
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.shopping_bag, size: 80, color: Color(0xFF0A84FF)),
+                  const SizedBox(height: 12),
+                  const Text("Rooter SHOP", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 48),
+                  TextField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      hintText: "Email",
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _pass,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    hintText: "Password",
-                    prefixIcon: Icon(Icons.lock_outline),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _pass,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      hintText: "Password",
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 32),
-                if (_isLoading)
-                  const CircularProgressIndicator()
-                else
-                  Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _emailPasswordSubmit,
-                          child: Text(_isLogin ? "Sign In" : "Create Account"),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _signInWithGoogle,
-                          icon: const Icon(Icons.g_mobiledata),
-                          label: const Text("Continue with Google"),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Color(0xFF8E8E93)),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                  const SizedBox(height: 32),
+                  if (_isLoading)
+                    const CircularProgressIndicator()
+                  else
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _emailPasswordSubmit,
+                            child: Text(_isLogin ? "Sign In" : "Create Account"),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _signInWithGitHub,
-                          icon: const Icon(Icons.code),
-                          label: const Text("Continue with GitHub"),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Color(0xFF8E8E93)),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _signInWithGoogle,
+                            icon: const Icon(Icons.g_mobiledata),
+                            label: const Text("Continue with Google"),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Color(0xFF8E8E93)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _signInWithGitHub,
+                            icon: const Icon(Icons.code),
+                            label: const Text("Continue with GitHub"),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Color(0xFF8E8E93)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+                  TextButton(
+                    onPressed: () => setState(() => _isLogin = !_isLogin),
+                    child: Text(
+                      _isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in",
+                      style: const TextStyle(color: Color(0xFF8E8E93)),
+                    ),
                   ),
-                const SizedBox(height: 24),
-                TextButton(
-                  onPressed: () => setState(() => _isLogin = !_isLogin),
-                  child: Text(
-                    _isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in",
-                    style: const TextStyle(color: Color(0xFF8E8E93)),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ================= GITHUB OAuth WEBVIEW =================
+class GitHubOAuthWebView extends StatefulWidget {
+  const GitHubOAuthWebView({super.key});
+  @override
+  State<GitHubOAuthWebView> createState() => _GitHubOAuthWebViewState();
+}
+
+class _GitHubOAuthWebViewState extends State<GitHubOAuthWebView> {
+  late WebViewController _controller;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final clientId = 'YOUR_GITHUB_CLIENT_ID'; // Replace with your GitHub OAuth App Client ID
+    final redirectUri = Uri.encodeComponent('https://your-app-redirect.com/callback');
+    final authUrl = 'https://github.com/login/oauth/authorize?client_id=$clientId&redirect_uri=$redirectUri&scope=user:email';
+
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            setState(() => _isLoading = true);
+            if (url.contains('code=')) {
+              final code = Uri.parse(url).queryParameters['code'];
+              if (code != null) Navigator.pop(context, code);
+            }
+          },
+          onPageFinished: (String url) => setState(() => _isLoading = false),
+          onWebResourceError: (WebResourceError error) {
+            setState(() {
+              _error = error.description;
+              _isLoading = false;
+            });
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(authUrl));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("GitHub Sign In")),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
+          if (_error != null)
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("Error: $_error"),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Go Back"),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -294,8 +384,21 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   int _balance = 0;
+  late AnimationController _fadeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600))..forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -336,65 +439,68 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const TextField(
-            decoration: InputDecoration(
-              hintText: "Search for BGMI UC...",
-              prefixIcon: Icon(Icons.search),
+      body: FadeTransition(
+        opacity: _fadeController,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const TextField(
+              decoration: InputDecoration(
+                hintText: "Search for BGMI UC...",
+                prefixIcon: Icon(Icons.search),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text("🎁 Free Giveaways", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          StreamBuilder<DatabaseEvent>(
-            stream: FirebaseDatabase.instance.ref("giveaways").limitToLast(1).onValue,
-            builder: (context, snapshot) {
-              if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-                Map data = snapshot.data!.snapshot.value as Map;
-                var key = data.keys.first;
-                var codeData = data[key];
-                return Card(
-                  color: Colors.green.withOpacity(0.2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: Colors.green),
-                  ),
-                  child: ListTile(
-                    leading: const Icon(Icons.card_giftcard, color: Colors.greenAccent, size: 30),
-                    title: const Text("Google Play Redeem Code", style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(codeData['code'] ?? "XXXX-XXXX-XXXX", style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2)),
-                    trailing: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code Copied!")));
-                      },
-                      child: const Text("COPY"),
+            const SizedBox(height: 24),
+            const Text("🎁 Free Giveaways", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            StreamBuilder<DatabaseEvent>(
+              stream: FirebaseDatabase.instance.ref("giveaways").limitToLast(1).onValue,
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+                  Map data = snapshot.data!.snapshot.value as Map;
+                  var key = data.keys.first;
+                  var codeData = data[key];
+                  return Card(
+                    color: Colors.green.withOpacity(0.2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: Colors.green),
                     ),
+                    child: ListTile(
+                      leading: const Icon(Icons.card_giftcard, color: Colors.greenAccent, size: 30),
+                      title: const Text("Google Play Redeem Code", style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(codeData['code'] ?? "XXXX-XXXX-XXXX", style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2)),
+                      trailing: ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code Copied!")));
+                        },
+                        child: const Text("COPY"),
+                      ),
+                    ),
+                  );
+                }
+                return Card(
+                  child: const ListTile(
+                    leading: Icon(Icons.card_giftcard, color: Colors.grey),
+                    title: Text("No active giveaways"),
+                    subtitle: Text("Check back later for free codes!"),
                   ),
                 );
-              }
-              return Card(
-                child: const ListTile(
-                  leading: Icon(Icons.card_giftcard, color: Colors.grey),
-                  title: Text("No active giveaways"),
-                  subtitle: Text("Check back later for free codes!"),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          const Text("🔥 For You", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildProductCard('BGMI UC', '10% Savings', Icons.gamepad, const BgmiPacksScreen())),
-              const SizedBox(width: 16),
-              Expanded(child: _buildProductCard('Valorant Points', '17.8% Savings', Icons.computer, const ValorantPacksScreen())),
-            ],
-          ),
-        ],
+              },
+            ),
+            const SizedBox(height: 24),
+            const Text("🔥 For You", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _buildProductCard('BGMI UC', '10% Savings', Icons.gamepad, const BgmiPacksScreen())),
+                const SizedBox(width: 16),
+                Expanded(child: _buildProductCard('Valorant Points', '17.8% Savings', Icons.computer, const ValorantPacksScreen())),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -451,7 +557,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildProductCard(String title, String subtitle, IconData icon, Widget destination) {
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => destination)),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        transform: Matrix4.identity()..scale(1.0),
         decoration: BoxDecoration(
           color: const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(16),
@@ -485,13 +594,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ================= BGMI PACKS (with up to 59% discount) =================
+// ================= BGMI PACKS =================
 class BgmiPacksScreen extends StatelessWidget {
   const BgmiPacksScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Packs with discount percentages
     final packs = [
       {'uc': 60, 'price': 75, 'discount': 0},
       {'uc': 300, 'extra': 25, 'price': 380, 'discount': 12},
@@ -510,9 +618,7 @@ class BgmiPacksScreen extends StatelessWidget {
           int discount = p['discount']!;
           int originalPrice = p['price']!;
           int discountedPrice = originalPrice;
-          if (discount > 0) {
-            discountedPrice = (originalPrice * (100 - discount) / 100).round();
-          }
+          if (discount > 0) discountedPrice = (originalPrice * (100 - discount) / 100).round();
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
@@ -533,16 +639,13 @@ class BgmiPacksScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (p['extra'] != null) Text("+ ${p['extra']} Bonus"),
-                  if (discount > 0)
-                    Text("₹$originalPrice", style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey)),
+                  if (discount > 0) Text("₹$originalPrice", style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey)),
                 ],
               ),
               trailing: ElevatedButton(
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => DeliveryDetailsScreen(uc: total, price: discountedPrice, packName: "$total UC"),
-                  ),
+                  MaterialPageRoute(builder: (_) => DeliveryDetailsScreen(uc: total, price: discountedPrice, packName: "$total UC")),
                 ),
                 child: Text("₹$discountedPrice"),
               ),
@@ -585,9 +688,7 @@ class ValorantPacksScreen extends StatelessWidget {
               trailing: ElevatedButton(
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => DeliveryDetailsScreen(uc: vp, price: discountedPrice, packName: "$vp VP"),
-                  ),
+                  MaterialPageRoute(builder: (_) => DeliveryDetailsScreen(uc: vp, price: discountedPrice, packName: "$vp VP")),
                 ),
                 child: Text("₹$discountedPrice"),
               ),
@@ -599,7 +700,7 @@ class ValorantPacksScreen extends StatelessWidget {
   }
 }
 
-// ================= DELIVERY DETAILS SCREEN =================
+// ================= DELIVERY DETAILS =================
 class DeliveryDetailsScreen extends StatefulWidget {
   final int uc;
   final int price;
@@ -645,13 +746,8 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   if (_idController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Please enter Game ID")),
-                    );
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter Game ID")));
                     return;
-                  }
-                  if (_saveDetails) {
-                    // Save to shared_preferences or local storage (simplified)
                   }
                   Navigator.push(
                     context,
@@ -748,7 +844,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       UpiResponse res = await _upi.startTransaction(
         app: app,
-        receiverUpiId: "paynearby.8406962570@indus", // Updated UPI ID
+        receiverUpiId: "paynearby.8406962570@indus",
         receiverName: "Rooter Shop",
         transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
         amount: widget.price.toDouble(),
@@ -844,7 +940,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 }
 
-// ================= WALLET TOP-UP SCREEN =================
+// ================= WALLET TOP-UP =================
 class WalletTopupScreen extends StatefulWidget {
   const WalletTopupScreen({super.key});
   @override
@@ -890,7 +986,7 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
     try {
       UpiResponse res = await _upi.startTransaction(
         app: app,
-        receiverUpiId: "paynearby.8406962570@indus", // Updated UPI ID
+        receiverUpiId: "paynearby.8406962570@indus",
         receiverName: "Rooter Shop",
         transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
         amount: amount.toDouble(),
@@ -971,7 +1067,7 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
   }
 }
 
-// ================= ORDER HISTORY SCREEN =================
+// ================= ORDER HISTORY =================
 class OrderHistoryScreen extends StatelessWidget {
   const OrderHistoryScreen({super.key});
 
