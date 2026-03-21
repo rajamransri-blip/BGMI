@@ -29,21 +29,32 @@ jobs:
           flutter-version: '3.19.0'
           channel: 'stable'
 
-      # Yahan humne project-name 'bgmi' (small letters) add kar diya hai
-      - name: Nuclear Fix for V2 Embedding
+      # 🔥 YAHAN HAI ASLI JADUU WALA STEP 🔥
+      - name: Auto-Generate Android Folder & Inject Permissions
         run: |
+          # 1. Firebase JSON ko safe rakhein
           if [ -f "android/app/google-services.json" ]; then
             cp android/app/google-services.json ./google-services-backup.json
           fi
           
+          # 2. Purana folder delete karein
           rm -rf android
           
-          # Niche wali line me --project-name bgmi add kiya gaya hai
+          # 3. Naya fresh folder banayein
           flutter create . --project-name bgmi --platforms=android --org com.bgmiuc
           
+          # 4. Firebase JSON wapas daalein
           if [ -f "./google-services-backup.json" ]; then
             cp ./google-services-backup.json android/app/google-services.json
           fi
+
+          # 5. MAGIC: AndroidManifest.xml me automatically Internet & UPI Permissions add karein
+          perl -pi -e 's|(<manifest[^>]*>)|$1\n    \n    <uses-permission android:name="android.permission.INTERNET"/>\n    \n    <queries>\n        <package android:name="com.google.android.apps.nbu.paisa.user" />\n        <package android:name="com.phonepe.app" />\n        <package android:name="com.paytm.app" />\n        <package android:name="in.org.npci.upiapp" />\n    </queries>|g' android/app/src/main/AndroidManifest.xml
+
+          # 6. MAGIC: build.gradle me automatically minSdkVersion 21 set karein (Firebase aur UPI ke liye mandatory)
+          perl -pi -e 's/minSdkVersion flutter\.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle
+          perl -pi -e 's/minSdkVersion 16/minSdkVersion 21/g' android/app/build.gradle
+          perl -pi -e 's/minSdkVersion 19/minSdkVersion 21/g' android/app/build.gradle
 
       - name: Install Dependencies
         run: flutter pub get
