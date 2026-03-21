@@ -1,2 +1,0 @@
-# BGMI
-Bgmi
