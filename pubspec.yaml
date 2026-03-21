@@ -1,11 +1,10 @@
 name: bgmi_uc_shop
 description: A new Flutter project.
 
-publish_to: 'none' # Prevents accidental publishing
+publish_to: 'none'
 
 version: 1.0.0+1
 
-# Ye line error fix karti hai
 environment:
   sdk: '>=3.3.0 <4.0.0'
 
