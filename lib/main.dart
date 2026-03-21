@@ -12,7 +12,17 @@ void main() async {
   String errorMsg = "";
   
   try {
-    await Firebase.initializeApp();
+    // 🔥 MAGIC FIX: Ab hum direct Firebase connect kar rahe hain bina kisi JSON file ke!
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyDN_q_BcUTvSXkILqKIvO_FhYJ4jHSC-HY",
+        appId: "1:225862888805:android:bbf4d06df8a0b57e6f058c",
+        messagingSenderId: "225862888805",
+        projectId: "bgmiuc-74295",
+        databaseURL: "https://bgmiuc-74295-default-rtdb.firebaseio.com",
+        storageBucket: "bgmiuc-74295.firebasestorage.app",
+      ),
+    );
     isFirebaseInit = true;
   } catch (e) {
     errorMsg = e.toString();
@@ -55,7 +65,7 @@ class RooterShopApp extends StatelessWidget {
               const SizedBox(height: 20),
               const Text("Firebase Setup Error", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: CupertinoColors.white)),
               const SizedBox(height: 10),
-              Text("Error: $error\n\nShayad android/app/ folder me google-services.json file missing hai.", textAlign: TextAlign.center, style: const TextStyle(color: CupertinoColors.systemGrey)),
+              Text("Error: $error", textAlign: TextAlign.center, style: const TextStyle(color: CupertinoColors.systemGrey)),
             ],
           ),
         ),
@@ -172,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       tabBuilder: (context, index) {
-        if (index == 1) return const OrdersScreen(); // Simple orders screen placeholder
+        if (index == 1) return const OrdersScreen(); 
         return CupertinoPageScaffold(
           navigationBar: CupertinoNavigationBar(
             backgroundColor: const Color(0xFF1A1A1A),
@@ -423,7 +433,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 if (_selected == null) return _showDialog("Select", "Choose a payment method");
                 if (_selected == 'wallet') {
                   if (_wallet < widget.price) return _showDialog("Error", "Low balance");
-                  // Add wallet deduction logic here
+                  // Deduct wallet logic can be added here
                 } else {
                   _processUPI(_apps!.firstWhere((a) => a.name == _selected));
                 }
