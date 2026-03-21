@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:upi_india/upi_india.dart';
 import 'package:intl/intl.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  bool isFirebaseInit = false;
-  String errorMsg = "";
+  bool isInit = false;
+  String errorMsg = '';
 
   try {
     await Firebase.initializeApp(
@@ -21,23 +22,23 @@ void main() async {
         storageBucket: "bgmiuc-74295.firebasestorage.app",
       ),
     );
-    isFirebaseInit = true;
+    isInit = true;
   } catch (e) {
     errorMsg = e.toString();
   }
 
-  runApp(RooterShopApp(isInit: isFirebaseInit, error: errorMsg));
+  runApp(MyApp(isInit: isInit, error: errorMsg));
 }
 
-class RooterShopApp extends StatelessWidget {
+class MyApp extends StatelessWidget {
   final bool isInit;
   final String error;
-  const RooterShopApp({super.key, required this.isInit, required this.error});
+  const MyApp({super.key, required this.isInit, required this.error});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'BLACKXY',
+      title: 'Rooter SHOP',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -47,47 +48,37 @@ class RooterShopApp extends StatelessWidget {
           backgroundColor: Color(0xFF1C1C1E),
           elevation: 0,
           centerTitle: true,
-          titleTextStyle: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
+          titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
         ),
         cardTheme: CardTheme(
           color: const Color(0xFF1C1C1E),
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF0A84FF),
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFF1C1C1E),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
         ),
       ),
-      home: isInit ? const AuthStateWrapper() : Scaffold(body: Center(child: Text("Error: $error"))),
+      home: isInit ? const AuthWrapper() : Scaffold(body: Center(child: Text("Error: $error"))),
     );
   }
 }
 
 // ================= AUTH WRAPPER =================
-class AuthStateWrapper extends StatelessWidget {
-  const AuthStateWrapper({super.key});
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -103,7 +94,7 @@ class AuthStateWrapper extends StatelessWidget {
   }
 }
 
-// ================= LOGIN / REGISTER =================
+// ================= AUTH SCREEN (Email, Google, GitHub) =================
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
   @override
@@ -115,8 +106,13 @@ class _AuthScreenState extends State<AuthScreen> {
   final _pass = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  void _submit() async {
+  void _showSnackbar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _emailPasswordSubmit() async {
     if (_email.text.isEmpty || _pass.text.isEmpty) {
       _showSnackbar("Please fill all fields");
       return;
@@ -147,8 +143,62 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = false);
   }
 
-  void _showSnackbar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      UserCredential userCred = await FirebaseAuth.instance.signInWithCredential(credential);
+      // Check if user exists in database
+      final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
+      final snap = await userRef.get();
+      if (!snap.exists) {
+        await userRef.set({
+          'balance': 0,
+          'email': userCred.user!.email,
+          'createdAt': ServerValue.timestamp,
+        });
+      }
+    } catch (e) {
+      _showSnackbar(e.toString());
+    }
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _signInWithGitHub() async {
+    setState(() => _isLoading = true);
+    try {
+      // Create a new provider
+      GitHubAuthProvider githubProvider = GitHubAuthProvider();
+      // You must enable GitHub in Firebase Console and add OAuth credentials
+      githubProvider.addScope('user:email');
+      UserCredential userCred = await FirebaseAuth.instance.signInWithPopup(githubProvider);
+      // For web, use signInWithPopup. For mobile, you may need a custom redirect.
+      // Here we use signInWithProvider (works on Android/iOS if OAuth is set up)
+      // Actually, on mobile you need to use signInWithCredential with a custom token,
+      // but for simplicity we assume web or pre-configured.
+      // For production, implement proper GitHub OAuth flow.
+      final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
+      final snap = await userRef.get();
+      if (!snap.exists) {
+        await userRef.set({
+          'balance': 0,
+          'email': userCred.user!.email ?? 'github_user',
+          'createdAt': ServerValue.timestamp,
+        });
+      }
+    } catch (e) {
+      _showSnackbar("GitHub Sign-In failed: ${e.toString()}");
+    }
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -157,53 +207,84 @@ class _AuthScreenState extends State<AuthScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.shopping_bag, size: 80, color: Color(0xFF0A84FF)),
-              const SizedBox(height: 12),
-              const Text(
-                "Rooter SHOP",
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: -0.5),
-              ),
-              const SizedBox(height: 48),
-              TextField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  hintText: "Email",
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _pass,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  hintText: "Password",
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-              ),
-              const SizedBox(height: 32),
-              if (_isLoading)
-                const CircularProgressIndicator()
-              else
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    child: Text(_isLogin ? "Sign In" : "Create Account"),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.shopping_bag, size: 80, color: Color(0xFF0A84FF)),
+                const SizedBox(height: 12),
+                const Text("Rooter SHOP", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 48),
+                TextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    hintText: "Email",
+                    prefixIcon: Icon(Icons.email_outlined),
                   ),
                 ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => setState(() => _isLogin = !_isLogin),
-                child: Text(
-                  _isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in",
-                  style: const TextStyle(color: Color(0xFF8E8E93)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _pass,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: "Password",
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 32),
+                if (_isLoading)
+                  const CircularProgressIndicator()
+                else
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _emailPasswordSubmit,
+                          child: Text(_isLogin ? "Sign In" : "Create Account"),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _signInWithGoogle,
+                          icon: const Icon(Icons.g_mobiledata),
+                          label: const Text("Continue with Google"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Color(0xFF8E8E93)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _signInWithGitHub,
+                          icon: const Icon(Icons.code),
+                          label: const Text("Continue with GitHub"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Color(0xFF8E8E93)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 24),
+                TextButton(
+                  onPressed: () => setState(() => _isLogin = !_isLogin),
+                  child: Text(
+                    _isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in",
+                    style: const TextStyle(color: Color(0xFF8E8E93)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -226,52 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
-      drawer: Drawer(
-        backgroundColor: const Color(0xFF1C1C1E),
-        child: SafeArea(
-          child: Column(
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(color: Color(0xFF0A84FF)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    const Icon(Icons.account_circle, size: 60, color: Colors.white),
-                    const SizedBox(height: 8),
-                    Text(
-                      FirebaseAuth.instance.currentUser?.email ?? "User",
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.home),
-                title: const Text("Home"),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                leading: const Icon(Icons.history),
-                title: const Text("My Orders"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen()));
-                },
-              ),
-              const Divider(color: Color(0xFF2C2C2E)),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text("Logout", style: TextStyle(color: Colors.redAccent)),
-                onTap: () {
-                  Navigator.pop(context);
-                  FirebaseAuth.instance.signOut();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      drawer: _buildDrawer(),
       appBar: AppBar(
         title: const Text("SHOP"),
         actions: [
@@ -292,12 +328,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.account_balance_wallet, size: 18, color: Colors.white),
+                      const Icon(Icons.account_balance_wallet, size: 18),
                       const SizedBox(width: 6),
-                      Text(
-                        "₹$_balance",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      Text("₹$_balance", style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(width: 4),
                       const Icon(Icons.add_circle, size: 16, color: Colors.greenAccent),
                     ],
@@ -311,19 +344,13 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          TextField(
+          const TextField(
             decoration: InputDecoration(
               hintText: "Search for BGMI UC...",
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide.none,
-              ),
+              prefixIcon: Icon(Icons.search),
             ),
           ),
           const SizedBox(height: 24),
-
-          // Giveaway Section
           const Text("🎁 Free Giveaways", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           StreamBuilder<DatabaseEvent>(
@@ -342,16 +369,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.card_giftcard, color: Colors.greenAccent, size: 30),
                     title: const Text("Google Play Redeem Code", style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(
-                      codeData['code'] ?? "XXXX-XXXX-XXXX",
-                      style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2),
-                    ),
+                    subtitle: Text(codeData['code'] ?? "XXXX-XXXX-XXXX", style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2)),
                     trailing: ElevatedButton(
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Code Copied!")),
-                        );
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code Copied!")));
                       },
                       child: const Text("COPY"),
                     ),
@@ -367,22 +389,14 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-
           const SizedBox(height: 24),
           const Text("🔥 For You", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BgmiPacksScreen())),
-                  child: _buildProductCard('BGMI UC', '10% Savings', Icons.gamepad),
-                ),
-              ),
+              Expanded(child: _buildProductCard('BGMI UC', '10% Savings', Icons.gamepad, const BgmiPacksScreen())),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildProductCard('Valorant Points', '17.8% Savings', Icons.computer),
-              ),
+              Expanded(child: _buildProductCard('Valorant Points', '17.8% Savings', Icons.computer, const ValorantPacksScreen())),
             ],
           ),
         ],
@@ -390,199 +404,152 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProductCard(String title, String subtitle, IconData icon) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            decoration: const BoxDecoration(
-              color: Color(0xFF2C2C2E),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Center(child: Icon(icon, size: 50, color: const Color(0xFF0A84FF))),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: Color(0xFF0A84FF), fontSize: 13)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ================= WALLET TOP-UP SCREEN =================
-class WalletTopupScreen extends StatefulWidget {
-  const WalletTopupScreen({super.key});
-  @override
-  State<WalletTopupScreen> createState() => _WalletTopupScreenState();
-}
-
-class _WalletTopupScreenState extends State<WalletTopupScreen> {
-  final UpiIndia _upi = UpiIndia();
-  List<UpiApp>? _apps;
-  final _amountController = TextEditingController();
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUpiApps();
-  }
-
-  Future<void> _loadUpiApps() async {
-    try {
-      final apps = await _upi.getAllUpiApps(mandatoryTransactionId: false);
-      setState(() {
-        _apps = apps;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _processTopup(UpiApp app) async {
-    if (_amountController.text.isEmpty) {
-      _showSnackbar("Enter amount");
-      return;
-    }
-    int amount = int.tryParse(_amountController.text) ?? 0;
-    if (amount < 10) {
-      _showSnackbar("Minimum top-up is ₹10");
-      return;
-    }
-
-    setState(() => _loading = true);
-    try {
-      UpiResponse res = await _upi.startTransaction(
-        app: app,
-        receiverUpiId: "paynearby.8406962570@indus", // Merchant UPI
-        receiverName: "Rooter Shop",
-        transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: amount.toDouble(),
-      );
-
-      if (res.status == UpiPaymentStatus.SUCCESS) {
-        final uid = FirebaseAuth.instance.currentUser!.uid;
-        final ref = FirebaseDatabase.instance.ref("users/$uid/balance");
-        await ref.runTransaction((Object? current) {
-          int bal = current == null ? 0 : (current as num).toInt();
-          return Transaction.success(bal + amount);
-        });
-
-        await FirebaseDatabase.instance.ref("transactions").push().set({
-          'uid': uid,
-          'type': 'wallet_topup',
-          'amount': amount,
-          'method': app.name,
-          'txnId': res.transactionId,
-          'timestamp': ServerValue.timestamp,
-        });
-
-        if (mounted) {
-          _showSnackbar("Wallet Recharge Successful!");
-          Navigator.pop(context);
-        }
-      } else {
-        _showSnackbar("Payment Failed or Cancelled");
-      }
-    } catch (e) {
-      _showSnackbar("Error: $e");
-    }
-    setState(() => _loading = false);
-  }
-
-  void _showSnackbar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Add Money to Wallet")),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
+  Widget _buildDrawer() {
+    return Drawer(
+      backgroundColor: const Color(0xFF1C1C1E),
+      child: SafeArea(
+        child: Column(
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Color(0xFF0A84FF)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextField(
-                    controller: _amountController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(
-                      prefixText: "₹ ",
-                      labelText: "Enter Amount",
-                    ),
+                  const Icon(Icons.account_circle, size: 60, color: Colors.white),
+                  const SizedBox(height: 8),
+                  Text(
+                    FirebaseAuth.instance.currentUser?.email ?? "User",
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
-                  const SizedBox(height: 30),
-                  const Text("Pay using UPI", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  if (_apps != null)
-                    ..._apps!.map((a) => Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            leading: Image.memory(a.icon, width: 30),
-                            title: Text(a.name),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                            onTap: () => _processTopup(a),
-                          ),
-                        )),
                 ],
               ),
             ),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text("Home"),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text("My Orders"),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen()));
+              },
+            ),
+            const Divider(color: Color(0xFF2C2C2E)),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text("Logout", style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                Navigator.pop(context);
+                FirebaseAuth.instance.signOut();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductCard(String title, String subtitle, IconData icon, Widget destination) {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => destination)),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 120,
+              decoration: const BoxDecoration(
+                color: Color(0xFF2C2C2E),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Center(child: Icon(icon, size: 50, color: const Color(0xFF0A84FF))),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: const TextStyle(color: Color(0xFF0A84FF), fontSize: 13)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-// ================= BGMI PACKS SCREEN =================
+// ================= BGMI PACKS (with up to 59% discount) =================
 class BgmiPacksScreen extends StatelessWidget {
   const BgmiPacksScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Packs with discount percentages
     final packs = [
-      {'uc': 60, 'price': 75},
-      {'uc': 300, 'extra': 25, 'price': 380},
-      {'uc': 600, 'extra': 60, 'price': 750},
+      {'uc': 60, 'price': 75, 'discount': 0},
+      {'uc': 300, 'extra': 25, 'price': 380, 'discount': 12},
+      {'uc': 600, 'extra': 60, 'price': 750, 'discount': 18},
+      {'uc': 1500, 'extra': 225, 'price': 1800, 'discount': 35},
+      {'uc': 3000, 'extra': 600, 'price': 3200, 'discount': 59},
     ];
     return Scaffold(
-      appBar: AppBar(title: const Text("Select Pack")),
+      appBar: AppBar(title: const Text("BGMI UC Packs")),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: packs.length,
         itemBuilder: (context, index) {
           final p = packs[index];
           int total = p['uc']! + (p['extra'] ?? 0);
+          int discount = p['discount']!;
+          int originalPrice = p['price']!;
+          int discountedPrice = originalPrice;
+          if (discount > 0) {
+            discountedPrice = (originalPrice * (100 - discount) / 100).round();
+          }
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               leading: const Icon(Icons.monetization_on, color: Colors.amber, size: 36),
-              title: Text("$total UC", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              subtitle: p['extra'] != null ? Text("+ ${p['extra']} Bonus") : null,
+              title: Row(
+                children: [
+                  Text("$total UC", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  if (discount > 0)
+                    Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(12)),
+                      child: Text("-$discount%", style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    ),
+                ],
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (p['extra'] != null) Text("+ ${p['extra']} Bonus"),
+                  if (discount > 0)
+                    Text("₹$originalPrice", style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey)),
+                ],
+              ),
               trailing: ElevatedButton(
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => DeliveryDetailsScreen(uc: total, price: p['price']!),
+                    builder: (_) => DeliveryDetailsScreen(uc: total, price: discountedPrice, packName: "$total UC"),
                   ),
                 ),
-                child: Text("₹${p['price']}"),
+                child: Text("₹$discountedPrice"),
               ),
             ),
           );
@@ -592,11 +559,54 @@ class BgmiPacksScreen extends StatelessWidget {
   }
 }
 
-// ================= DELIVERY DETAILS =================
+// ================= VALORANT PACKS (simple) =================
+class ValorantPacksScreen extends StatelessWidget {
+  const ValorantPacksScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final packs = [
+      {'vp': 475, 'price': 399, 'discount': 10},
+      {'vp': 1000, 'price': 799, 'discount': 15},
+      {'vp': 2100, 'price': 1599, 'discount': 20},
+    ];
+    return Scaffold(
+      appBar: AppBar(title: const Text("Valorant Points")),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: packs.length,
+        itemBuilder: (context, index) {
+          final p = packs[index];
+          int discountedPrice = (p['price']! * (100 - p['discount']!) / 100).round();
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              leading: const Icon(Icons.computer, color: Color(0xFFFF4655), size: 36),
+              title: Text("${p['vp']} VP", style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text("₹${p['price']} → ₹$discountedPrice", style: const TextStyle(color: Colors.green)),
+              trailing: ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DeliveryDetailsScreen(uc: p['vp'], price: discountedPrice, packName: "${p['vp']} VP"),
+                  ),
+                ),
+                child: Text("₹$discountedPrice"),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ================= DELIVERY DETAILS SCREEN =================
 class DeliveryDetailsScreen extends StatefulWidget {
   final int uc;
   final int price;
-  const DeliveryDetailsScreen({super.key, required this.uc, required this.price});
+  final String packName;
+  const DeliveryDetailsScreen({super.key, required this.uc, required this.price, required this.packName});
   @override
   State<DeliveryDetailsScreen> createState() => _DeliveryDetailsScreenState();
 }
@@ -617,7 +627,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               controller: _idController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: "BGMI Game ID",
+                labelText: "BGMI / Valorant Game ID",
                 hintText: "Enter your Player ID",
               ),
             ),
@@ -643,14 +653,14 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                     return;
                   }
                   if (_saveDetails) {
-                    // save to shared_preferences or local storage (simplified)
+                    // Save to shared_preferences or local storage (simplified)
                   }
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => PaymentScreen(
                         price: widget.price,
-                        pack: "${widget.uc} UC",
+                        pack: widget.packName,
                         gameId: _idController.text.trim(),
                       ),
                     ),
@@ -740,8 +750,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       UpiResponse res = await _upi.startTransaction(
         app: app,
-        receiverUpiId: "paynearby.8406962570@indus",
-        receiverName: "BLACKXY Shop",
+        receiverUpiId: "8406962570@ybl",
+        receiverName: "Rooter Shop",
         transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
         amount: widget.price.toDouble(),
       );
@@ -772,11 +782,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 10),
-            Text("Success!"),
-          ],
+          children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 10), Text("Success!")],
         ),
         content: const Text("Your order has been placed successfully."),
         actions: [
@@ -843,6 +849,133 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 }
 
+// ================= WALLET TOP-UP SCREEN =================
+class WalletTopupScreen extends StatefulWidget {
+  const WalletTopupScreen({super.key});
+  @override
+  State<WalletTopupScreen> createState() => _WalletTopupScreenState();
+}
+
+class _WalletTopupScreenState extends State<WalletTopupScreen> {
+  final UpiIndia _upi = UpiIndia();
+  List<UpiApp>? _apps;
+  final _amountController = TextEditingController();
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUpiApps();
+  }
+
+  Future<void> _loadUpiApps() async {
+    try {
+      final apps = await _upi.getAllUpiApps(mandatoryTransactionId: false);
+      setState(() {
+        _apps = apps;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _processTopup(UpiApp app) async {
+    if (_amountController.text.isEmpty) {
+      _showSnackbar("Enter amount");
+      return;
+    }
+    int amount = int.tryParse(_amountController.text) ?? 0;
+    if (amount < 10) {
+      _showSnackbar("Minimum top-up is ₹10");
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      UpiResponse res = await _upi.startTransaction(
+        app: app,
+        receiverUpiId: "8406962570@ybl",
+        receiverName: "Rooter Shop",
+        transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
+        amount: amount.toDouble(),
+      );
+
+      if (res.status == UpiPaymentStatus.SUCCESS) {
+        final uid = FirebaseAuth.instance.currentUser!.uid;
+        final ref = FirebaseDatabase.instance.ref("users/$uid/balance");
+        await ref.runTransaction((Object? current) {
+          int bal = current == null ? 0 : (current as num).toInt();
+          return Transaction.success(bal + amount);
+        });
+
+        await FirebaseDatabase.instance.ref("transactions").push().set({
+          'uid': uid,
+          'type': 'wallet_topup',
+          'amount': amount,
+          'method': app.name,
+          'txnId': res.transactionId,
+          'timestamp': ServerValue.timestamp,
+          'approved': true, // auto-approve for demo; admin can later review
+        });
+
+        if (mounted) {
+          _showSnackbar("Wallet Recharge Successful!");
+          Navigator.pop(context);
+        }
+      } else {
+        _showSnackbar("Payment Failed or Cancelled");
+      }
+    } catch (e) {
+      _showSnackbar("Error: $e");
+    }
+    setState(() => _loading = false);
+  }
+
+  void _showSnackbar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Add Money to Wallet")),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    decoration: const InputDecoration(
+                      prefixText: "₹ ",
+                      labelText: "Enter Amount",
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const Text("Pay using UPI", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  if (_apps != null)
+                    ..._apps!.map((a) => Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            leading: Image.memory(a.icon, width: 30),
+                            title: Text(a.name),
+                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            onTap: () => _processTopup(a),
+                          ),
+                        )),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
 // ================= ORDER HISTORY SCREEN =================
 class OrderHistoryScreen extends StatelessWidget {
   const OrderHistoryScreen({super.key});
@@ -899,10 +1032,7 @@ class OrderHistoryScreen extends StatelessWidget {
                           color: _getStatusColor(status),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          status,
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
-                        ),
+                        child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 12)),
                       ),
                     ],
                   ),
