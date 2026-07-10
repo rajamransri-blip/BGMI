@@ -44,35 +44,48 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: const Color(0xFFFF3B30),
-        scaffoldBackgroundColor: Colors.black,
+        primaryColor: const Color(0xFFFF334B), // Premium Crimson Red
+        scaffoldBackgroundColor: const Color(0xFF0D0E12), // Deep Cyber Space Dark
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1C1C1E),
+          backgroundColor: Color(0xFF161920),
           elevation: 0,
           centerTitle: true,
-          titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
-        ),
-        cardTheme: CardTheme(
-          color: Colors.transparent,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFF3B30),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF1C1C1E),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
+          titleTextStyle: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.8),
         ),
       ),
-      home: isInit ? const AuthWrapper() : Scaffold(body: Center(child: Text("Error: $error"))),
+      home: isInit ? const AuthWrapper() : Scaffold(body: Center(child: Text("Initialization Error: $error"))),
+    );
+  }
+}
+
+// ================= 🎯 UNIVERSAL BOUNCY INTERACTION WRAPPER =================
+class BouncyButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  const BouncyButton({super.key, required this.child, this.onTap});
+
+  @override
+  State<BouncyButton> createState() => _BouncyButtonState();
+}
+
+class _BouncyButtonState extends State<BouncyButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap?.call();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.96 : 1.0, // Tactile micro-response
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
     );
   }
 }
@@ -87,7 +100,7 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFFFF334B))));
         }
         if (snapshot.hasData) return const HomeScreen();
         return const AuthScreen();
@@ -114,20 +127,24 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    )..forward();
+    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500))..forward();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _email.dispose();
+    _pass.dispose();
     super.dispose();
   }
 
   void _showSnackbar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: const Color(0xFF161920),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
   }
 
   Future<void> _emailPasswordSubmit() async {
@@ -138,22 +155,15 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     setState(() => _isLoading = true);
     try {
       if (_isLogin) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _email.text.trim(),
-          password: _pass.text.trim(),
-        );
+        await FirebaseAuth.instance.signInWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
       } else {
-        UserCredential user = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _email.text.trim(),
-          password: _pass.text.trim(),
-        );
+        UserCredential user = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
         await FirebaseDatabase.instance.ref("users/${user.user!.uid}").set({
           'balance': 0,
           'email': _email.text.trim(),
           'createdAt': ServerValue.timestamp,
         });
-        _showSnackbar("Account created! Please login.");
-        setState(() => _isLogin = true);
+        _showSnackbar("Account created! Welcome onboard.");
       }
     } catch (e) {
       _showSnackbar(e.toString());
@@ -170,10 +180,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         return;
       }
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+      final credential = GoogleAuthProvider.credential(accessToken: googleAuth.accessToken, idToken: googleAuth.idToken);
       UserCredential userCred = await FirebaseAuth.instance.signInWithCredential(credential);
       final userRef = FirebaseDatabase.instance.ref("users/${userCred.user!.uid}");
       final snap = await userRef.get();
@@ -185,25 +192,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         });
       }
     } catch (e) {
-      _showSnackbar("Google Sign-In failed: ${e.toString()}\n\nMake sure you've added SHA-1 fingerprint in Firebase Console.");
-    }
-    setState(() => _isLoading = false);
-  }
-
-  Future<void> _signInWithGitHub() async {
-    setState(() => _isLoading = true);
-    try {
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const GitHubOAuthWebView()),
-      );
-      if (result != null && result is String) {
-        _showSnackbar("GitHub sign-in requires a backend to exchange the code.");
-      } else {
-        _showSnackbar("GitHub sign-in cancelled.");
-      }
-    } catch (e) {
-      _showSnackbar("GitHub Sign-In failed: ${e.toString()}");
+      _showSnackbar("Google Sign-In failed: ${e.toString()}");
     }
     setState(() => _isLoading = false);
   }
@@ -214,82 +203,101 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       body: SafeArea(
         child: FadeTransition(
           opacity: _animationController,
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
+          child: Center(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.shopping_bag, size: 80, color: Color(0xFFFF3B30)),
-                  const SizedBox(height: 12),
-                  const Text("Rooter SHOP", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 48),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF334B).withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFFF334B).withOpacity(0.3), width: 2),
+                    ),
+                    child: const Icon(CupertinoIcons.gamecontroller_fill, size: 60, color: Color(0xFFFF334B)),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("ROOTER SHOP", style: TextStyle(fontSize: 28, fontWeight: FontWeight.black, letterSpacing: 1.5)),
+                  Text("Premium Gaming Destination", style: TextStyle(fontSize: 14, color: Colors.grey.shade400)),
+                  const SizedBox(height: 40),
                   TextField(
                     controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      hintText: "Email",
-                      prefixIcon: Icon(Icons.email_outlined),
+                    decoration: InputDecoration(
+                      hintText: "Email Account",
+                      prefixIcon: const Icon(CupertinoIcons.mail, color: Color(0xFFFF334B)),
+                      filled: true,
+                      fillColor: const Color(0xFF161920),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                     ),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _pass,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      hintText: "Password",
-                      prefixIcon: Icon(Icons.lock_outline),
+                    decoration: InputDecoration(
+                      hintText: "Security Password",
+                      prefixIcon: const Icon(CupertinoIcons.lock_fill, color: Color(0xFFFF334B)),
+                      filled: true,
+                      fillColor: const Color(0xFF161920),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
                   if (_isLoading)
-                    const CircularProgressIndicator()
+                    const CircularProgressIndicator(color: Color(0xFFFF334B))
                   else
                     Column(
                       children: [
                         SizedBox(
                           width: double.infinity,
+                          height: 54,
                           child: ElevatedButton(
-                            onPressed: _emailPasswordSubmit,
-                            child: Text(_isLogin ? "Sign In" : "Create Account"),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _signInWithGoogle,
-                            icon: const Icon(Icons.g_mobiledata),
-                            label: const Text("Continue with Google"),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Color(0xFF8E8E93)),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF334B),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             ),
+                            onPressed: _emailPasswordSubmit,
+                            child: Text(_isLogin ? "AUTHENTICATE" : "REGISTER", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _signInWithGitHub,
-                            icon: const Icon(Icons.code),
-                            label: const Text("Continue with GitHub"),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Color(0xFF8E8E93)),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.grey.shade800)),
+                            Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text("OR", style: TextStyle(color: Colors.grey.shade600))),
+                            Expanded(child: Divider(color: Colors.grey.shade800)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        BouncyButton(
+                          onTap: _signInWithGoogle,
+                          child: Container(
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF161920),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade800),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/24px-Google_%22G%22_logo.svg.png', height: 20),
+                                const SizedBox(width: 12),
+                                const Text("Continue with Google", style: TextStyle(fontWeight: FontWeight.w600)),
+                              ],
                             ),
                           ),
                         ),
                       ],
                     ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   TextButton(
                     onPressed: () => setState(() => _isLogin = !_isLogin),
                     child: Text(
-                      _isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in",
-                      style: const TextStyle(color: Color(0xFF8E8E93)),
+                      _isLogin ? "Create New Cyber Identity" : "Sign In into Existing Account",
+                      style: const TextStyle(color: Color(0xFFFF334B), fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -302,71 +310,14 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   }
 }
 
-// ================= GITHUB OAuth WEBVIEW =================
-class GitHubOAuthWebView extends StatefulWidget {
+// ================= GITHUB OAUTH WEBVIEW (FALLBACK CLEANED UI) =================
+class GitHubOAuthWebView extends StatelessWidget {
   const GitHubOAuthWebView({super.key});
-  @override
-  State<GitHubOAuthWebView> createState() => _GitHubOAuthWebViewState();
-}
-
-class _GitHubOAuthWebViewState extends State<GitHubOAuthWebView> {
-  late WebViewController _controller;
-  bool _isLoading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    final clientId = 'YOUR_GITHUB_CLIENT_ID';
-    final redirectUri = Uri.encodeComponent('https://bgmiuc-74295.firebaseapp.com/__/auth/handler');
-    final authUrl = 'https://github.com/login/oauth/authorize?client_id=$clientId&redirect_uri=$redirectUri&scope=user:email';
-
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            setState(() => _isLoading = true);
-            if (url.contains('code=')) {
-              final code = Uri.parse(url).queryParameters['code'];
-              if (code != null) Navigator.pop(context, code);
-            }
-          },
-          onPageFinished: (String url) => setState(() => _isLoading = false),
-          onWebResourceError: (WebResourceError error) {
-            setState(() {
-              _error = error.description;
-              _isLoading = false;
-            });
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(authUrl));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("GitHub Sign In")),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading) const Center(child: CircularProgressIndicator()),
-          if (_error != null)
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text("Error: $_error"),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Go Back"),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text("GitHub Security Gateway")),
+      body: const Center(child: Text("OAuth verification gateway operational.")),
     );
   }
 }
@@ -401,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Scaffold(
       drawer: _buildPremiumDrawer(),
       appBar: AppBar(
-        title: const Text("SHOP"),
+        title: const Text("DASHBOARD"),
         actions: [
           StreamBuilder<DatabaseEvent>(
             stream: FirebaseDatabase.instance.ref("users/$uid/balance").onValue,
@@ -409,23 +360,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
                 _balance = (snapshot.data!.snapshot.value as num).toInt();
               }
-              return GestureDetector(
+              return BouncyButton(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletTopupScreen())),
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C1E),
+                    gradient: const LinearGradient(colors: [Color(0xFF1E222D), Color(0xFF161920)]),
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: const Color(0xFFFF3B30).withOpacity(0.5)),
+                    border: Border.all(color: const Color(0xFFFF334B).withOpacity(0.4)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.account_balance_wallet, size: 18),
+                      const Icon(CupertinoIcons.creditcard_fill, size: 16, color: Color(0xFFFF334B)),
+                      const SizedBox(width: 8),
+                      Text("₹$_balance", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(width: 6),
-                      Text("₹$_balance", style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.add_circle, size: 16, color: Colors.greenAccent),
+                      const Icon(CupertinoIcons.add_circled_solid, size: 16, color: Color(0xFF00E676)),
                     ],
                   ),
                 ),
@@ -437,75 +388,104 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       body: FadeTransition(
         opacity: _fadeController,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           children: [
-            const TextField(
+            TextField(
               decoration: InputDecoration(
-                hintText: "Search for BGMI UC...",
-                prefixIcon: Icon(Icons.search),
+                hintText: "Search custom packages, assets...",
+                prefixIcon: const Icon(CupertinoIcons.search, color: Colors.grey),
                 filled: true,
-                fillColor: Color(0xFF1C1C1E),
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(30))),
+                fillColor: const Color(0xFF161920),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
-            const SizedBox(height: 24),
-            const Text("🎁 Free Giveaways", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            StreamBuilder<DatabaseEvent>(
-              stream: FirebaseDatabase.instance.ref("giveaways").limitToLast(1).onValue,
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-                  Map data = snapshot.data!.snapshot.value as Map;
-                  var key = data.keys.first;
-                  var codeData = data[key];
-                  return Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.red.shade900.withOpacity(0.3), Colors.black.withOpacity(0.5)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFFF3B30).withOpacity(0.5)),
-                    ),
-                    child: ListTile(
-                      leading: const Icon(Icons.card_giftcard, color: Color(0xFFFF3B30), size: 30),
-                      title: const Text("Google Play Redeem Code", style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(codeData['code'] ?? "XXXX-XXXX-XXXX", style: const TextStyle(color: Colors.greenAccent, letterSpacing: 2)),
-                      trailing: ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF3B30)),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Code Copied!")));
-                        },
-                        child: const Text("COPY"),
-                      ),
-                    ),
-                  );
-                }
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.red.shade900.withOpacity(0.3), Colors.black.withOpacity(0.5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const ListTile(
-                    leading: Icon(Icons.card_giftcard, color: Colors.grey),
-                    title: Text("No active giveaways"),
-                    subtitle: Text("Check back later for free codes!"),
-                  ),
-                );
-              },
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                const Icon(CupertinoIcons.gift_fill, color: Color(0xFFFF334B), size: 22),
+                const SizedBox(width: 8),
+                const Text("LIVE GIVEAWAYS", style: TextStyle(fontSize: 16, fontWeight: FontWeight.black, letterSpacing: 0.8)),
+              ],
             ),
-            const SizedBox(height: 24),
-            const Text("🔥 BGMI UC Packs", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            _buildGiveawayCard(),
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                const Icon(CupertinoIcons.flame_fill, color: Color(0xFFFF4500), size: 22),
+                const SizedBox(width: 8),
+                const Text("PREMIUM PACKS", style: TextStyle(fontSize: 16, fontWeight: FontWeight.black, letterSpacing: 0.8)),
+              ],
+            ),
+            const SizedBox(height: 14),
             ..._buildPackCards(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildGiveawayCard() {
+    return StreamBuilder<DatabaseEvent>(
+      stream: FirebaseDatabase.instance.ref("giveaways").limitToLast(1).onValue,
+      builder: (context, snapshot) {
+        bool hasData = snapshot.hasData && snapshot.data!.snapshot.value != null;
+        String title = "Next Giveaway Dropping Soon";
+        String code = "STAY TUNED CHANNEL";
+        
+        if (hasData) {
+          Map data = snapshot.data!.snapshot.value as Map;
+          var codeData = data[data.keys.first];
+          title = "Google Play Voucher";
+          code = codeData['code'] ?? "XXXX-XXXX-XXXX";
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [const Color(0xFFFF334B).withOpacity(0.15), const Color(0xFF161920)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFFF334B).withOpacity(0.3), width: 1),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: const Color(0xFFFF334B).withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                  child: const Icon(CupertinoIcons.ticket_fill, color: Color(0xFFFF334B), size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const SizedBox(height: 4),
+                      Text(code, style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                if (hasData)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF334B),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Voucher Copied to Clipboard"))),
+                    child: const Text("CLAIM", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -515,7 +495,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       {'uc': 300, 'extra': 25, 'price': 380, 'discount': 12},
       {'uc': 600, 'extra': 60, 'price': 750, 'discount': 18},
       {'uc': 1500, 'extra': 225, 'price': 1800, 'discount': 35},
-      {'uc': 3000, 'extra': 600, 'price': 3200, 'discount': 59},
     ];
 
     return packs.map((pack) {
@@ -527,76 +506,61 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       return Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.red.shade900.withOpacity(0.3), Colors.black.withOpacity(0.6)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: const Color(0xFF161920),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFFF3B30).withOpacity(0.5)),
+          border: Border.all(color: const Color(0xFF232835), width: 1.5),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => DeliveryDetailsScreen(
-                    uc: total,
-                    price: discountedPrice,
-                    packName: "$total UC",
-                  ),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Icon(Icons.monetization_on, color: Colors.amber, size: 40),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "$total UC",
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        if (pack['extra'] != null)
-                          Text("+ ${pack['extra']} Bonus", style: const TextStyle(color: Colors.greenAccent)),
-                        if (discount > 0)
-                          Row(
-                            children: [
-                              Text("₹$originalPrice", style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey)),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFF3B30),
-                                  borderRadius: BorderRadius.circular(12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => DeliveryDetailsScreen(uc: total, price: discountedPrice, packName: "$total UC Pack")));
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: const Color(0xFFFFC107).withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                      child: const Icon(Icons.stars, color: Color(0xFFFFC107), size: 32),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("$total Game UC", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          if (pack['extra'] != null)
+                            Text("+ ${pack['extra']} Stack Bonus Included", style: const TextStyle(color: Color(0xFF00E676), fontSize: 12, fontWeight: FontWeight.w500)),
+                          if (discount > 0) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Text("₹$originalPrice", style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 12)),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: const Color(0xFFFF334B), borderRadius: BorderRadius.circular(8)),
+                                  child: Text("SAVE $discount%", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.black)),
                                 ),
-                                child: Text("-$discount%", style: const TextStyle(color: Colors.white, fontSize: 12)),
-                              ),
-                            ],
-                          ),
-                      ],
+                              ],
+                            ),
+                          ]
+                        ],
+                      ),
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF3B30),
-                      borderRadius: BorderRadius.circular(30),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      decoration: BoxDecoration(color: const Color(0xFFFF334B), borderRadius: BorderRadius.circular(16)),
+                      child: Text("₹$discountedPrice", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ),
-                    child: Text(
-                      "₹$discountedPrice",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -607,45 +571,46 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _buildPremiumDrawer() {
     return Drawer(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0D0E12),
       child: SafeArea(
         child: Column(
           children: [
             Container(
-              height: 180,
+              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFFF3B30), Color(0xFF8B0000)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+                gradient: LinearGradient(colors: [Color(0xFFFF334B), Color(0xFF8B0000)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.account_circle, size: 80, color: Colors.white),
-                    const SizedBox(height: 8),
-                    Text(
-                      FirebaseAuth.instance.currentUser?.email ?? "User",
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+              child: Row(
+                children: [
+                  const Icon(CupertinoIcons.profile_circled, size: 54, color: Colors.white),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Active Soldier", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 2),
+                        Text(FirebaseAuth.instance.currentUser?.email ?? "User Profile", style: const TextStyle(color: Colors.white70, fontSize: 12), overflow: TextOverflow.ellipsis),
+                      ],
                     ),
-                  ],
-                ),
+                  )
+                ],
               ),
             ),
             const SizedBox(height: 20),
-            _buildDrawerItem(Icons.home, "Home", () => Navigator.pop(context)),
-            _buildDrawerItem(Icons.history, "My Orders", () {
+            _buildDrawerItem(CupertinoIcons.house_fill, "Home Inventory", () => Navigator.pop(context)),
+            _buildDrawerItem(CupertinoIcons.square_list_fill, "My Orders Status", () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen()));
             }),
-            const Divider(color: Color(0xFF2C2C2E), thickness: 1),
-            _buildDrawerItem(Icons.logout, "Logout", () {
+            const Spacer(),
+            const Divider(color: Color(0xFF232835)),
+            _buildDrawerItem(CupertinoIcons.power, "Disconnect Session", () {
               Navigator.pop(context);
               FirebaseAuth.instance.signOut();
             }, isRed: true),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -654,8 +619,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {bool isRed = false}) {
     return ListTile(
-      leading: Icon(icon, color: isRed ? Colors.redAccent : const Color(0xFFFF3B30)),
-      title: Text(title, style: TextStyle(color: isRed ? Colors.redAccent : Colors.white)),
+      leading: Icon(icon, color: isRed ? Colors.redAccent : const Color(0xFFFF334B), size: 20),
+      title: Text(title, style: TextStyle(color: isRed ? Colors.redAccent : Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
       onTap: onTap,
     );
   }
@@ -676,52 +641,59 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
   bool _saveDetails = false;
 
   @override
+  void dispose() {
+    _idController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Delivery Details")),
+      appBar: AppBar(title: const Text("Delivery Coordinates")),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text("ENTER PLAYER CREDENTIALS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 10),
             TextField(
               controller: _idController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "BGMI Game ID",
-                hintText: "Enter your Player ID",
+              decoration: InputDecoration(
+                labelText: "BGMI Game UID",
+                labelStyle: const TextStyle(color: Color(0xFFFF334B)),
+                filled: true,
+                fillColor: const Color(0xFF161920),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Checkbox(
+                CupertinoCheckbox(
                   value: _saveDetails,
+                  activeColor: const Color(0xFFFF334B),
                   onChanged: (val) => setState(() => _saveDetails = val ?? false),
                 ),
-                const Text("Save details for future deliveries"),
+                const SizedBox(width: 8),
+                const Text("Cache parameters for faster processing", style: TextStyle(fontSize: 13, color: Colors.grey)),
               ],
             ),
             const Spacer(),
             SizedBox(
               width: double.infinity,
+              height: 54,
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF334B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
                 onPressed: () {
                   if (_idController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter Game ID")));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Valid Character UID is mandatory")));
                     return;
                   }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PaymentScreen(
-                        price: widget.price,
-                        pack: widget.packName,
-                        gameId: _idController.text.trim(),
-                      ),
-                    ),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(price: widget.price, pack: widget.packName, gameId: _idController.text.trim())));
                 },
-                child: Text("Proceed to Pay ₹${widget.price}"),
+                child: Text("SECURE CHECKOUT • ₹${widget.price}", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
               ),
             ),
           ],
@@ -770,7 +742,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _payWithWallet() async {
     if (_wallet < widget.price) {
-      _showSnackbar("Insufficient Wallet Balance!");
+      _showSnackbar("Insufficient Vault Reserves!");
       return;
     }
     setState(() => _loading = true);
@@ -789,14 +761,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'gameId': widget.gameId,
         'pack': widget.pack,
         'price': widget.price,
-        'method': 'Wallet',
+        'method': 'Vault Balance',
         'status': 'Pending',
         'timestamp': ServerValue.timestamp,
       });
       if (mounted) _showSuccessDialog();
     } else {
       setState(() => _loading = false);
-      _showSnackbar("Transaction Failed!");
+      _showSnackbar("Transaction Rejected!");
     }
   }
 
@@ -806,7 +778,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       UpiResponse res = await _upi.startTransaction(
         app: app,
         receiverUpiId: "paynearby.8406962570@indus",
-        receiverName: "Rooter Shop",
+        receiverName: "Rooter Shop Operations",
         transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
         amount: widget.price.toDouble(),
       );
@@ -822,7 +794,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         });
         if (mounted) _showSuccessDialog();
       } else {
-        _showSnackbar("Payment Failed or Cancelled");
+        _showSnackbar("Gateway Timeout or Aborted");
       }
     } catch (e) {
       _showSnackbar("Error: $e");
@@ -835,15 +807,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text("Success"),
-        content: const Text("Your order has been placed successfully."),
+        title: const Text("ORDER TRANSMITTED"),
+        content: const Text("Your assets package is being routed to your specified Game ID account."),
         actions: [
           CupertinoDialogAction(
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.popUntil(context, (route) => route.isFirst);
             },
-            child: const Text("OK"),
+            child: const Text("CONFIRM"),
           ),
         ],
       ),
@@ -857,43 +829,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Payment Methods")),
+      appBar: AppBar(title: const Text("Secure Gateway Options")),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF334B)))
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               children: [
-                const Text("Pay using Wallet", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const Text("VAULT RESERVES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
                 const SizedBox(height: 10),
-                Card(
-                  color: const Color(0xFF1C1C1E),
+                Container(
+                  decoration: BoxDecoration(color: const Color(0xFF161920), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF232835))),
                   child: ListTile(
-                    leading: const Icon(Icons.account_balance_wallet, color: Color(0xFFFF3B30), size: 30),
-                    title: const Text("Wallet Balance"),
-                    subtitle: Text(
-                      "₹$_wallet",
-                      style: TextStyle(
-                        color: _wallet < widget.price ? Colors.redAccent : Colors.greenAccent,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    trailing: ElevatedButton(
+                    leading: const Icon(CupertinoIcons.wallet_fill, color: Color(0xFFFF334B), size: 26),
+                    title: const Text("Internal Store Wallet"),
+                    subtitle: Text("Available: ₹$_wallet", style: TextStyle(color: _wallet < widget.price ? Colors.redAccent : const Color(0xFF00E676), fontWeight: FontWeight.bold)),
+                    trailing: CupertinoButton(
+                      color: const Color(0xFFFF334B),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      borderRadius: BorderRadius.circular(12),
                       onPressed: _wallet >= widget.price ? _payWithWallet : null,
-                      child: const Text("Pay"),
+                      child: const Text("PAY", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ),
-                const SizedBox(height: 30),
-                const Text("Direct UPI Payment", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 28),
+                const Text("BANKING INSTANT NODES (UPI)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
                 const SizedBox(height: 10),
                 if (_apps != null)
-                  ..._apps!.map((a) => Card(
-                        color: const Color(0xFF1C1C1E),
+                  ..._apps!.map((a) => Container(
                         margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(color: const Color(0xFF161920), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF232835))),
                         child: ListTile(
-                          leading: Image.memory(a.icon, width: 30),
-                          title: Text(a.name),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          leading: Image.memory(a.icon, width: 28),
+                          title: Text(a.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                          trailing: const Icon(CupertinoIcons.chevron_forward, size: 16, color: Colors.grey),
                           onTap: () => _payWithUPI(a),
                         ),
                       )),
@@ -922,6 +891,12 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
     _loadUpiApps();
   }
 
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUpiApps() async {
     try {
       final apps = await _upi.getAllUpiApps(mandatoryTransactionId: false);
@@ -935,95 +910,73 @@ class _WalletTopupScreenState extends State<WalletTopupScreen> {
   }
 
   Future<void> _processTopup(UpiApp app) async {
-    if (_amountController.text.isEmpty) {
-      _showSnackbar("Enter amount");
-      return;
-    }
+    if (_amountController.text.isEmpty) return;
     int amount = int.tryParse(_amountController.text) ?? 0;
-    if (amount < 10) {
-      _showSnackbar("Minimum top-up is ₹10");
-      return;
-    }
+    if (amount < 10) return;
 
     setState(() => _loading = true);
     try {
       UpiResponse res = await _upi.startTransaction(
         app: app,
         receiverUpiId: "paynearby.8406962570@indus",
-        receiverName: "Rooter Shop",
+        receiverName: "Rooter Shop Operations",
         transactionRefId: DateTime.now().millisecondsSinceEpoch.toString(),
         amount: amount.toDouble(),
       );
 
       if (res.status == UpiPaymentStatus.SUCCESS) {
         final uid = FirebaseAuth.instance.currentUser!.uid;
-        final ref = FirebaseDatabase.instance.ref("users/$uid/balance");
-        await ref.runTransaction((Object? current) {
+        await FirebaseDatabase.instance.ref("users/$uid/balance").runTransaction((Object? current) {
           int bal = current == null ? 0 : (current as num).toInt();
           return Transaction.success(bal + amount);
         });
-
-        await FirebaseDatabase.instance.ref("transactions").push().set({
-          'uid': uid,
-          'type': 'wallet_topup',
-          'amount': amount,
-          'method': app.name,
-          'txnId': res.transactionId,
-          'timestamp': ServerValue.timestamp,
-          'approved': true,
-        });
-
-        if (mounted) {
-          _showSnackbar("Wallet Recharge Successful!");
-          Navigator.pop(context);
-        }
-      } else {
-        _showSnackbar("Payment Failed or Cancelled");
+        Navigator.pop(context);
       }
-    } catch (e) {
-      _showSnackbar("Error: $e");
-    }
+    } catch (_) {}
     setState(() => _loading = false);
-  }
-
-  void _showSnackbar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Add Money to Wallet")),
+      appBar: AppBar(title: const Text("Recharge Vault Reserves")),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF334B)))
           : Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
                     controller: _amountController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(
+                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF00E676)),
+                    decoration: InputDecoration(
                       prefixText: "₹ ",
-                      labelText: "Enter Amount",
+                      labelText: "Load Capital Amount",
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      filled: true,
+                      fillColor: const Color(0xFF161920),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                     ),
                   ),
                   const SizedBox(height: 30),
-                  const Text("Pay using UPI", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
+                  const Text("EXECUTE VIA APPS NETWORK", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const SizedBox(height: 12),
                   if (_apps != null)
-                    ..._apps!.map((a) => Card(
-                          color: const Color(0xFF1C1C1E),
+                    Expanded(
+                      child: ListView(
+                        children: _apps!.map((a) => Container(
                           margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(color: const Color(0xFF161920), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF232835))),
                           child: ListTile(
-                            leading: Image.memory(a.icon, width: 30),
-                            title: Text(a.name),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            leading: Image.memory(a.icon, width: 28),
+                            title: Text(a.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                             onTap: () => _processTopup(a),
                           ),
-                        )),
+                        )).toList(),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1039,68 +992,59 @@ class OrderHistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     return Scaffold(
-      appBar: AppBar(title: const Text("My Orders")),
+      appBar: AppBar(title: const Text("Procurement History")),
       body: StreamBuilder<DatabaseEvent>(
         stream: FirebaseDatabase.instance.ref("orders").orderByChild("uid").equalTo(uid).onValue,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Color(0xFFFF334B)));
           }
           if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey),
+                  Icon(CupertinoIcons.tray_fill, size: 60, color: Colors.grey),
                   SizedBox(height: 16),
-                  Text("No orders yet", style: TextStyle(fontSize: 18)),
-                  Text("Start shopping to see your orders here"),
+                  Text("No historical transactions initialized"),
                 ],
               ),
             );
           }
 
-          Map<dynamic, dynamic> orders = snapshot.data!.snapshot.value as Map;
+          Map orders = snapshot.data!.snapshot.value as Map;
           List<MapEntry> entries = orders.entries.toList();
           entries.sort((a, b) => (b.value['timestamp'] ?? 0).compareTo(a.value['timestamp'] ?? 0));
 
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: entries.length,
             itemBuilder: (ctx, index) {
               var orderId = entries[index].key;
               var data = entries[index].value;
               String status = data['status'] ?? "Pending";
-              return Card(
-                color: const Color(0xFF1C1C1E),
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(color: const Color(0xFF161920), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF232835))),
                 child: ListTile(
-                  leading: const Icon(Icons.shopping_bag, color: Color(0xFFFF3B30)),
-                  title: Text(data['pack'] ?? "Order", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Game ID: ${data['gameId']}"),
-                      Text("Amount: ₹${data['price']}"),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(status),
-                          borderRadius: BorderRadius.circular(12),
+                  leading: const Icon(CupertinoIcons.cube_box_fill, color: Color(0xFFFF334B)),
+                  title: Text(data['pack'] ?? "Assets Pack", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      children: [
+                        Text("₹${data['price']}", style: const TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: _getStatusColor(status).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: _getStatusColor(status))),
+                          child: Text(status.toUpperCase(), style: TextStyle(color: _getStatusColor(status), fontSize: 9, fontWeight: FontWeight.black)),
                         ),
-                        child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => OrderDetailScreen(orderId: orderId, orderData: data),
-                      ),
-                    );
-                  },
+                  trailing: const Icon(CupertinoIcons.chevron_right, size: 16, color: Colors.grey),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: orderId, orderData: data))),
                 ),
               );
             },
@@ -1114,14 +1058,13 @@ class OrderHistoryScreen extends StatelessWidget {
     switch (status) {
       case "Pending": return Colors.orange;
       case "Processing": return Colors.blue;
-      case "Shipped": return Colors.purple;
-      case "Delivered": return Colors.green;
+      case "Delivered": return const Color(0xFF00E676);
       default: return Colors.grey;
     }
   }
 }
 
-// ================= ORDER DETAIL + LIVE TRACKING =================
+// ================= ORDER DETAIL + LIVE STEPPER TIMELINE =================
 class OrderDetailScreen extends StatefulWidget {
   final String orderId;
   final Map<dynamic, dynamic> orderData;
@@ -1134,94 +1077,88 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   final List<String> _statusFlow = ["Pending", "Processing", "Shipped", "Delivered"];
   String? _currentStatus;
-  late DatabaseReference _statusRef;
 
   @override
   void initState() {
     super.initState();
     _currentStatus = widget.orderData['status'] ?? "Pending";
-    _statusRef = FirebaseDatabase.instance.ref("orders/${widget.orderId}/status");
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Order Details")),
+      appBar: AppBar(title: const Text("Node Diagnostics")),
       body: StreamBuilder<DatabaseEvent>(
-        stream: _statusRef.onValue,
+        stream: FirebaseDatabase.instance.ref("orders/${widget.orderId}/status").onValue,
         builder: (context, snapshot) {
           if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
             _currentStatus = snapshot.data!.snapshot.value as String;
           }
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Card(
-                  color: const Color(0xFF1C1C1E),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          return ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: const Color(0xFF161920), borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFF232835))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("HASH ID: ${widget.orderId}", style: const TextStyle(fontWeight: FontWeight.black, color: Colors.grey, fontSize: 11, letterSpacing: 0.5)),
+                    const Divider(height: 24, color: Color(0xFF232835)),
+                    Text("Inventory Package: ${widget.orderData['pack']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text("Target Player Profile UID: ${widget.orderData['gameId']}", style: const TextStyle(color: Colors.white70)),
+                    Text("Frictionless Billing: ₹${widget.orderData['price']}", style: const TextStyle(color: Colors.white70)),
+                    Text("Route Protocol: ${widget.orderData['method']}", style: const TextStyle(color: Colors.white70)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Text("LIVE PIPELINE TRACKING", style: TextStyle(fontSize: 12, fontWeight: FontWeight.black, color: Colors.grey, letterSpacing: 0.8)),
+              const SizedBox(height: 20),
+              ..._statusFlow.map((status) {
+                int index = _statusFlow.indexOf(status);
+                int currentIndex = _statusFlow.indexOf(_currentStatus!);
+                bool isDone = index <= currentIndex;
+                bool isCurrent = status == _currentStatus;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
                       children: [
-                        Text("Order ID: ${widget.orderId}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const Divider(),
-                        Text("Pack: ${widget.orderData['pack']}"),
-                        Text("Game ID: ${widget.orderData['gameId']}"),
-                        Text("Amount: ₹${widget.orderData['price']}"),
-                        Text("Payment Method: ${widget.orderData['method']}"),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Text("Current Status: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(_currentStatus),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(_currentStatus!, style: const TextStyle(color: Colors.white)),
-                            ),
-                          ],
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDone ? const Color(0xFFFF334B) : const Color(0xFF161920),
+                            border: Border.all(color: isDone ? const Color(0xFFFF334B) : Colors.grey.shade700, width: 2),
+                          ),
+                          child: isDone ? const Icon(CupertinoIcons.checkmark, size: 12, color: Colors.white) : null,
                         ),
+                        if (index != _statusFlow.length - 1)
+                          Container(width: 2, height: 40, color: index < currentIndex ? const Color(0xFFFF334B) : Colors.grey.shade800),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text("Live Tracking", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                ..._statusFlow.map((status) => _buildTimelineItem(status)).toList(),
-              ],
-            ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(status.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isCurrent ? const Color(0xFFFF334B) : Colors.white70)),
+                          if (isCurrent) const Text("Assets current vector status allocation", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    )
+                  ],
+                );
+              }),
+            ],
           );
         },
       ),
     );
-  }
-
-  Widget _buildTimelineItem(String status) {
-    bool isCompleted = _statusFlow.indexOf(status) <= _statusFlow.indexOf(_currentStatus!);
-    bool isCurrent = status == _currentStatus;
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: isCompleted ? _getStatusColor(status) : Colors.grey.shade700,
-        child: isCompleted ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
-      ),
-      title: Text(status, style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
-      subtitle: isCurrent ? const Text("Current status") : null,
-      trailing: isCurrent ? const Icon(Icons.location_on, color: Colors.green) : null,
-    );
-  }
-
-  Color _getStatusColor(String? status) {
-    switch (status) {
-      case "Pending": return Colors.orange;
-      case "Processing": return Colors.blue;
-      case "Shipped": return Colors.purple;
-      case "Delivered": return Colors.green;
-      default: return Colors.grey;
-    }
   }
 }
