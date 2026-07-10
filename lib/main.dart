@@ -44,8 +44,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: const Color(0xFFFF334B), // Premium Crimson Red
-        scaffoldBackgroundColor: const Color(0xFF0D0E12), // Deep Cyber Space Dark
+        primaryColor: const Color(0xFFFF334B),
+        scaffoldBackgroundColor: const Color(0xFF0D0E12),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF161920),
           elevation: 0,
@@ -58,7 +58,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ================= 🎯 UNIVERSAL BOUNCY INTERACTION WRAPPER =================
+// ================= UNIVERSAL BOUNCY INTERACTION WRAPPER =================
 class BouncyButton extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -81,7 +81,7 @@ class _BouncyButtonState extends State<BouncyButton> {
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
-        scale: _isPressed ? 0.96 : 1.0, // Tactile micro-response
+        scale: _isPressed ? 0.96 : 1.0,
         duration: const Duration(milliseconds: 100),
         curve: Curves.easeOutCubic,
         child: widget.child,
@@ -219,7 +219,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     child: const Icon(CupertinoIcons.gamecontroller_fill, size: 60, color: Color(0xFFFF334B)),
                   ),
                   const SizedBox(height: 16),
-                  const Text("ROOTER SHOP", style: TextStyle(fontSize: 28, fontWeight: FontWeight.black, letterSpacing: 1.5)),
+                  // FIXED: FontWeight.black changed to FontWeight.w900
+                  const Text("ROOTER SHOP", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
                   Text("Premium Gaming Destination", style: TextStyle(fontSize: 14, color: Colors.grey.shade400)),
                   const SizedBox(height: 40),
                   TextField(
@@ -310,18 +311,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   }
 }
 
-// ================= GITHUB OAUTH WEBVIEW (FALLBACK CLEANED UI) =================
-class GitHubOAuthWebView extends StatelessWidget {
-  const GitHubOAuthWebView({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("GitHub Security Gateway")),
-      body: const Center(child: Text("OAuth verification gateway operational.")),
-    );
-  }
-}
-
 // ================= HOME SCREEN =================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -405,7 +394,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               children: [
                 const Icon(CupertinoIcons.gift_fill, color: Color(0xFFFF334B), size: 22),
                 const SizedBox(width: 8),
-                const Text("LIVE GIVEAWAYS", style: TextStyle(fontSize: 16, fontWeight: FontWeight.black, letterSpacing: 0.8)),
+                // FIXED: FontWeight.black changed to FontWeight.w900
+                const Text("LIVE GIVEAWAYS", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
               ],
             ),
             const SizedBox(height: 12),
@@ -415,7 +405,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               children: [
                 const Icon(CupertinoIcons.flame_fill, color: Color(0xFFFF4500), size: 22),
                 const SizedBox(width: 8),
-                const Text("PREMIUM PACKS", style: TextStyle(fontSize: 16, fontWeight: FontWeight.black, letterSpacing: 0.8)),
+                // FIXED: FontWeight.black changed to FontWeight.w900
+                const Text("PREMIUM PACKS", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
               ],
             ),
             const SizedBox(height: 14),
@@ -546,7 +537,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(color: const Color(0xFFFF334B), borderRadius: BorderRadius.circular(8)),
-                                  child: Text("SAVE $discount%", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.black)),
+                                  // FIXED: FontWeight.black changed to FontWeight.w900
+                                  child: Text("SAVE $discount%", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
                                 ),
                               ],
                             ),
@@ -840,7 +832,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 Container(
                   decoration: BoxDecoration(color: const Color(0xFF161920), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF232835))),
                   child: ListTile(
-                    leading: const Icon(CupertinoIcons.wallet_fill, color: Color(0xFFFF334B), size: 26),
+                    // FIXED: Changed CupertinoIcons.wallet_fill to CupertinoIcons.creditcard_fill for SDK compatibility
+                    leading: const Icon(CupertinoIcons.creditcard_fill, color: Color(0xFFFF334B), size: 26),
                     title: const Text("Internal Store Wallet"),
                     subtitle: Text("Available: ₹$_wallet", style: TextStyle(color: _wallet < widget.price ? Colors.redAccent : const Color(0xFF00E676), fontWeight: FontWeight.bold)),
                     trailing: CupertinoButton(
@@ -1038,7 +1031,8 @@ class OrderHistoryScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: _getStatusColor(status).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: _getStatusColor(status))),
-                          child: Text(status.toUpperCase(), style: TextStyle(color: _getStatusColor(status), fontSize: 9, fontWeight: FontWeight.black)),
+                          // FIXED: FontWeight.black changed to FontWeight.w900
+                          child: Text(status.toUpperCase(), style: TextStyle(color: _getStatusColor(status), fontSize: 9, fontWeight: FontWeight.w900)),
                         ),
                       ],
                     ),
@@ -1103,7 +1097,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("HASH ID: ${widget.orderId}", style: const TextStyle(fontWeight: FontWeight.black, color: Colors.grey, fontSize: 11, letterSpacing: 0.5)),
+                    // FIXED: FontWeight.black changed to FontWeight.w900
+                    Text("HASH ID: ${widget.orderId}", style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.grey, fontSize: 11, letterSpacing: 0.5)),
                     const Divider(height: 24, color: Color(0xFF232835)),
                     Text("Inventory Package: ${widget.orderData['pack']}", style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
@@ -1114,7 +1109,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              const Text("LIVE PIPELINE TRACKING", style: TextStyle(fontSize: 12, fontWeight: FontWeight.black, color: Colors.grey, letterSpacing: 0.8)),
+              // FIXED: FontWeight.black changed to FontWeight.w900
+              const Text("LIVE PIPELINE TRACKING", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 0.8)),
               const SizedBox(height: 20),
               ..._statusFlow.map((status) {
                 int index = _statusFlow.indexOf(status);
