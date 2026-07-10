@@ -18,7 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Subscribe to balance changes in Firebase
     final uid = FirebaseAuth.instance.currentUser!.uid;
     _balanceStream = _database.child("users/$uid/balance").onValue;
   }
@@ -27,74 +26,129 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return CupertinoTabScaffold(
       tabBar: CupertinoTabBar(
-        backgroundColor: const Color(0xFF1A1A1A),
-        activeColor: CupertinoColors.activeBlue,
+        backgroundColor: const Color(0xFF121214),
+        activeColor: const Color(0xFF007AFF),
+        inactiveColor: CupertinoColors.systemGrey2,
         items: const [
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_grid_2x2), label: 'Categories'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.cube), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.person_crop_circle_fill), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.house_fill), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_grid_2x2_fill), label: 'Categories'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.bag_fill), label: 'Orders'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.person_fill), label: 'Profile'),
         ],
       ),
       tabBuilder: (context, index) {
         return CupertinoPageScaffold(
+          backgroundColor: const Color(0xFF0A0A0C), // Deep Premium Dark Background
           navigationBar: CupertinoNavigationBar(
-            backgroundColor: const Color(0xFF1A1A1A),
-            leading: const Icon(CupertinoIcons.bag_fill, color: CupertinoColors.activeBlue),
-            middle: const Text('SHOP', style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CupertinoButton(padding: EdgeInsets.zero, child: const Icon(CupertinoIcons.sparkles, color: CupertinoColors.white), onPressed: () {}),
-                
-                // WORKING WALLET UI FROM image_0.png
-                StreamBuilder<DatabaseEvent>(
-                  stream: _balanceStream,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-                      _currentBalance = (snapshot.data!.snapshot.value as num).toInt();
-                    }
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: const Color(0xFF333333), borderRadius: BorderRadius.circular(20)),
-                      child: Row(
-                        children: [
-                          const Icon(CupertinoIcons.creditcard, size: 16, color: CupertinoColors.white),
-                          const SizedBox(width: 4),
-                          Text("₹$_currentBalance", style: const TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
-                        ],
+            border: Border(bottom: BorderSide(color: const Color(0xFF1F1F24), width: 0.5)),
+            backgroundColor: const Color(0xFF121214).withOpacity(0.8),
+            leading: const Icon(CupertinoIcons.sparkles, color: Color(0xFF007AFF), size: 24),
+            middle: const Text(
+              'EPIC SHOP', 
+              style: TextStyle(
+                color: CupertinoColors.white, 
+                fontWeight: FontWeight.extrabold, 
+                letterSpacing: 1.2,
+                fontSize: 18
+              )
+            ),
+            trailing: StreamBuilder<DatabaseEvent>(
+              stream: _balanceStream,
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+                  _currentBalance = (snapshot.data!.snapshot.value as num).toInt();
+                }
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1F1F24), Color(0xFF2C2C35)],
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: const Color(0xFF3A3A45), width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(CupertinoIcons.tokens, size: 16, color: Color(0xFFFFD700)), // Gold Token Icon
+                      const SizedBox(width: 6),
+                      Text(
+                        "₹$_currentBalance", 
+                        style: const TextStyle(
+                          color: CupertinoColors.white, 
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14
+                        )
                       ),
-                    );
-                  },
-                ),
-              ],
+                    ],
+                  ),
+                );
+              },
             ),
           ),
           child: SafeArea(
             child: ListView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(18.0),
               children: [
-                const CupertinoSearchTextField(backgroundColor: Color(0xFF1A1A1A), placeholder: 'Search for BGMI UC, Valorant & more'),
-                const SizedBox(height: 20),
-                const Text('For You', style: TextStyle(color: CupertinoColors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const CupertinoSearchTextField(
+                  backgroundColor: Color(0xFF121214),
+                  placeholder: 'Search BGMI UC, Valorant Points...',
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  borderRadius: BorderRadius.all(Radius.circular(14)),
+                ),
+                const SizedBox(height: 28),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.between,
+                  children: [
+                    const Text(
+                      'Featured For You', 
+                      style: TextStyle(
+                        color: CupertinoColors.white, 
+                        fontSize: 22, 
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5
+                      )
+                    ),
+                    GestureDetector(
+                      child: const Text('See All', style: TextStyle(color: Color(0xFF007AFF), fontSize: 14)),
+                    )
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    // BGMI UC Product Card - Handles navigation on click
                     Expanded(
-                      child: GestureDetector(
+                      child: InteractiveCard(
                         onTap: () {
-                          // Navegate to packs screen when clicked
                           Navigator.push(context, CupertinoPageRoute(builder: (context) => const BgmiPacksScreen()));
                         },
-                        child: _buildProductCard('Battlegrounds Mobile India', 'BGMI UC', '10% Savings', imageIcon: CupertinoIcons.game_controller_solid),
+                        child: _buildProductCard(
+                          'BATTLEGROUNDS India', 
+                          'BGMI UC Instant Pack', 
+                          '10% OFF', 
+                          imageIcon: CupertinoIcons.gamecontroller_fill,
+                          accentColor: const Color(0xFFF3A63B)
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildProductCard('Valorant', 'Valorant Points', '17.8% Savings', imageIcon: CupertinoIcons.desktopcomputer)),
+                    Expanded(
+                      child: InteractiveCard(
+                        onTap: () {
+                          // Valorant route action here
+                        },
+                        child: _buildProductCard(
+                          'VALORANT PC', 
+                          'Valorant Riot Points', 
+                          '17.8% SAVE', 
+                          imageIcon: CupertinoIcons.device_desktop,
+                          accentColor: const Color(0xFFFF4655)
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                // categories filters replication ...
               ],
             ),
           ),
@@ -103,31 +157,127 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProductCard(String gameTitle, String packName, String savings, {required IconData imageIcon}) {
+  // Modern Clean Card Design
+  Widget _buildProductCard(String gameTitle, String packName, String savings, {required IconData imageIcon, required Color accentColor}) {
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121214),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF1F1F24), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: CupertinoColors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          )
+        ]
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 100,
-            decoration: const BoxDecoration(color: Color(0xFF333333), borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-            child: Center(child: Icon(imageIcon, size: 40, color: CupertinoColors.systemGrey)),
+          Stack(
+            children: [
+              // Top Image Area
+              Container(
+                height: 110,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1E),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [const Color(0xFF121214), accentColor.withOpacity(0.15)],
+                  ),
+                ),
+                child: Center(
+                  child: Icon(imageIcon, size: 44, color: accentColor),
+                ),
+              ),
+              // Dynamic Savings Tag/Badge
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    savings,
+                    style: const TextStyle(
+                      color: CupertinoColors.black,
+                      fontSize: 9,
+                      fontWeight: FontWeight.extrabold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
+          // Content Area
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(14.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(gameTitle, style: const TextStyle(color: CupertinoColors.systemGrey, fontSize: 10)),
-                const SizedBox(height: 4),
-                Text(packName, style: const TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 8),
-                Text(savings, style: const TextStyle(color: CupertinoColors.activeBlue, fontSize: 12, fontWeight: FontWeight.bold)),
+                Text(
+                  gameTitle.toUpperCase(), 
+                  style: TextStyle(color: CupertinoColors.systemGrey, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  packName, 
+                  style: const TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.w700, fontSize: 13, height: 1.2), 
+                  maxLines: 2, 
+                  overflow: TextOverflow.ellipsis
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.between,
+                  children: [
+                    const Text('View Packs', style: TextStyle(color: Color(0xFF007AFF), fontSize: 11, fontWeight: FontWeight.w600)),
+                    Icon(CupertinoIcons.chevron_right, size: 12, color: const Color(0xFF007AFF).withOpacity(0.8)),
+                  ],
+                )
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// 🎯 Custom Click Animation Wrapper Widget (Bouncy Feedback)
+class InteractiveCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const InteractiveCard({super.key, required this.child, this.onTap});
+
+  @override
+  State<InteractiveCard> createState() => _InteractiveCardState();
+}
+
+class _InteractiveCardState extends State<InteractiveCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap?.call();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.95 : 1.0, // 5% Scale Down Effect on Press
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
       ),
     );
   }
